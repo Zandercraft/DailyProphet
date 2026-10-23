@@ -3,6 +3,7 @@ import os
 import customtkinter as ctk
 from PIL import Image
 from typing import Callable, Optional, Dict, List
+from .theme import Theme
 
 
 class ImageLibraryDialog(ctk.CTkToplevel):
@@ -54,25 +55,14 @@ class ImageLibraryDialog(ctk.CTkToplevel):
 
     def _setup_ui(self):
         # Header
-        top_frame = ctk.CTkFrame(self, fg_color="#2b231c", corner_radius=0, height=55)
-        top_frame.pack(fill="x", padx=0, pady=0)
-
-        ctk.CTkLabel(
-            top_frame,
-            text="🏰 Hogwarts Artwork & Character Library",
-            font=ctk.CTkFont(family="Georgia", size=17, weight="bold"),
-            text_color="#f5ede0",
-        ).pack(side="left", padx=16, pady=12)
-
-        ctk.CTkLabel(
-            top_frame,
-            text="Select an illustration or transparent character cutout for your story",
-            font=ctk.CTkFont(family="Georgia", size=12, slant="italic"),
-            text_color="#c4b7a5",
-        ).pack(side="left", padx=10, pady=12)
+        Theme.create_header_banner(
+            self,
+            title="Artwork & Character Library",
+            subtitle="Select an illustration or transparent character cutout for your story"
+        )
 
         # Tab view for categories
-        self.tabview = ctk.CTkTabview(self, fg_color="#1c1713")
+        self.tabview = ctk.CTkTabview(self, fg_color=Theme.APP_BG)
         self.tabview.pack(fill="both", expand=True, padx=14, pady=10)
 
         for cat_name, items in self.library_items.items():

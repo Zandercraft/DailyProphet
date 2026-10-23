@@ -82,7 +82,7 @@ class Theme:
 
     @staticmethod
     def font_caption() -> ctk.CTkFont:
-        return ctk.CTkFont(size=10.5)
+        return ctk.CTkFont(size=11)
 
     @staticmethod
     def font_button() -> ctk.CTkFont:

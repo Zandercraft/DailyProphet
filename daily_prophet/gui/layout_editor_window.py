@@ -39,6 +39,7 @@ from ..template_package import (
 )
 
 from ..layout_models import SlotType, LayoutStatus, LayoutSlot, LayoutDefinition
+from .theme import Theme, IconManager
 
 # Color palettes dynamically mapped from SlotType enumeration
 SLOT_COLORS = {s.value: s.ui_colors for s in SlotType}
@@ -159,50 +160,50 @@ class LayoutEditorWindow(ctk.CTkToplevel):
 
         ctk.CTkButton(
             mgmt_box,
-            text="➕ New",
+            text="New",
             width=65,
-            fg_color="#34495e",
-            hover_color="#2c3e50",
+            fg_color=Theme.BTN_NEUTRAL[0],
+            hover_color=Theme.BTN_NEUTRAL[1],
             font=ctk.CTkFont(size=11),
             command=self._show_add_template_dialog
         ).pack(side="left", padx=2)
 
         ctk.CTkButton(
             mgmt_box,
-            text="📥 Import",
+            text="Import",
             width=70,
-            fg_color="#3d4f40",
-            hover_color="#2f3d32",
+            fg_color=Theme.BTN_SUCCESS[0],
+            hover_color=Theme.BTN_SUCCESS[1],
             font=ctk.CTkFont(size=11),
             command=self._import_template_package
         ).pack(side="left", padx=2)
 
         ctk.CTkButton(
             mgmt_box,
-            text="📤 Export",
+            text="Export",
             width=70,
-            fg_color="#3d4f40",
-            hover_color="#2f3d32",
+            fg_color=Theme.BTN_SUCCESS[0],
+            hover_color=Theme.BTN_SUCCESS[1],
             font=ctk.CTkFont(size=11),
             command=self._export_template_package
         ).pack(side="left", padx=2)
 
         self.delete_btn = ctk.CTkButton(
             mgmt_box,
-            text="🗑️ Delete",
+            text="Delete",
             width=70,
-            fg_color="#542525",
-            hover_color="#732525",
+            fg_color=Theme.BTN_DANGER[0],
+            hover_color=Theme.BTN_DANGER[1],
             font=ctk.CTkFont(size=11),
             command=self._confirm_delete_template
         )
 
         self.reset_btn = ctk.CTkButton(
             mgmt_box,
-            text="🔄 Reset",
+            text="Reset",
             width=65,
-            fg_color="#4a3e2c",
-            hover_color="#382e20",
+            fg_color=Theme.BTN_SECONDARY[0],
+            hover_color=Theme.BTN_SECONDARY[1],
             font=ctk.CTkFont(size=11),
             command=self._show_reset_dialog
         )
@@ -212,12 +213,12 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         zoom_frame = ctk.CTkFrame(top_bar, fg_color="transparent")
         zoom_frame.pack(side="left", padx=12)
 
-        ctk.CTkButton(zoom_frame, text="🔍 -", width=38, command=self._zoom_out).pack(side="left", padx=2)
-        self.zoom_lbl = ctk.CTkLabel(zoom_frame, text="75%", width=46)
+        ctk.CTkButton(zoom_frame, text="-", width=34, fg_color=Theme.BTN_CONTROL[0], hover_color=Theme.BTN_CONTROL[1], command=self._zoom_out).pack(side="left", padx=2)
+        self.zoom_lbl = ctk.CTkLabel(zoom_frame, text="75%", width=44)
         self.zoom_lbl.pack(side="left", padx=2)
-        ctk.CTkButton(zoom_frame, text="🔍 +", width=38, command=self._zoom_in).pack(side="left", padx=2)
-        ctk.CTkButton(zoom_frame, text="100%", width=46, command=self._zoom_reset).pack(side="left", padx=2)
-        ctk.CTkButton(zoom_frame, text="Fit Width", width=68, command=self._zoom_fit_width).pack(side="left", padx=2)
+        ctk.CTkButton(zoom_frame, text="+", width=34, fg_color=Theme.BTN_CONTROL[0], hover_color=Theme.BTN_CONTROL[1], command=self._zoom_in).pack(side="left", padx=2)
+        ctk.CTkButton(zoom_frame, text="100%", width=46, fg_color=Theme.BTN_CONTROL[0], hover_color=Theme.BTN_CONTROL[1], command=self._zoom_reset).pack(side="left", padx=2)
+        ctk.CTkButton(zoom_frame, text="Fit Width", width=68, fg_color=Theme.BTN_CONTROL[0], hover_color=Theme.BTN_CONTROL[1], command=self._zoom_fit_width).pack(side="left", padx=2)
 
         # Actions on right: Save to Project (Primary) & Save to Global
         action_box = ctk.CTkFrame(top_bar, fg_color="transparent")
@@ -225,10 +226,10 @@ class LayoutEditorWindow(ctk.CTkToplevel):
 
         ctk.CTkButton(
             action_box,
-            text="➕ New Slot (Drag)",
+            text="New Slot (Drag)",
             width=120,
-            fg_color="#3d5a45",
-            hover_color="#2b4736",
+            fg_color=Theme.BTN_SUCCESS[0],
+            hover_color=Theme.BTN_SUCCESS[1],
             command=self._activate_draw_mode
         ).pack(side="left", padx=3)
 
@@ -247,22 +248,22 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         # Primary default action: Save to this project
         ctk.CTkButton(
             action_box,
-            text="💾 Save Slots",
-            width=120,
+            text="Save Slots",
+            width=115,
             font=ctk.CTkFont(weight="bold"),
-            fg_color="#8f2d2d",
-            hover_color="#6e2020",
+            fg_color=Theme.BTN_PRIMARY[0],
+            hover_color=Theme.BTN_PRIMARY[1],
             command=self._save_to_current_project
         ).pack(side="left", padx=4)
 
         # Global template save action
         ctk.CTkButton(
             action_box,
-            text="🌐 Save Global Template",
-            width=165,
+            text="Save Global Template",
+            width=150,
             font=ctk.CTkFont(size=11),
-            fg_color="#2c3e50",
-            hover_color="#1a252f",
+            fg_color=Theme.BTN_NEUTRAL[0],
+            hover_color=Theme.BTN_NEUTRAL[1],
             command=self._save_to_global_template
         ).pack(side="left", padx=3)
 
@@ -400,9 +401,9 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         # Delete Slot Button
         ctk.CTkButton(
             self.edit_frame,
-            text="🗑️ Delete Selected Slot",
-            fg_color="#542525",
-            hover_color="#732525",
+            text="Delete Selected Slot",
+            fg_color=Theme.BTN_DANGER[0],
+            hover_color=Theme.BTN_DANGER[1],
             height=28,
             command=self._delete_selected_slot
         ).pack(fill="x", padx=10, pady=(2, 10))
@@ -643,6 +644,39 @@ class LayoutEditorWindow(ctk.CTkToplevel):
                 parent=self
             )
 
+    def _reset_project_slots(self, dialog: ctk.CTkToplevel):
+        del self.project_custom_layouts[self.current_layout_key]
+        if self.edition and self.current_layout_key in self.edition.custom_layouts:
+            del self.edition.custom_layouts[self.current_layout_key]
+        self.layouts_data[self.current_layout_key] = copy.deepcopy(self.global_layouts[self.current_layout_key])
+        self._load_layout_into_editor(self.current_layout_key)
+        if callable(self.on_project_save):
+            self.on_project_save()
+        dialog.destroy()
+        messagebox.showinfo("Reset Complete", "Reverted issue slots to the global template default.", parent=self)
+
+    def _restore_factory_defaults(self, dialog: ctk.CTkToplevel):
+        confirm = messagebox.askyesno(
+            "Confirm Factory Reset",
+            "This will restore all shipped templates from the factory source defaults. Any global edits will be reset. Proceed?",
+            parent=dialog
+        )
+        if not confirm:
+            return
+        try:
+            restored = restore_factory_templates(defs_path=self.defs_path, base_dir=self.base_dir)
+            self.global_layouts = restored
+            for k, v in restored.items():
+                if k not in self.project_custom_layouts:
+                    self.layouts_data[k] = copy.deepcopy(v)
+            self._load_layout_into_editor(self.current_layout_key)
+            if callable(self.on_global_change):
+                self.on_global_change()
+            dialog.destroy()
+            messagebox.showinfo("Factory Reset Complete", "Global templates restored to original factory defaults.", parent=self)
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to restore factory defaults: {e}", parent=dialog)
+
     def _show_reset_dialog(self):
         """Allows resetting project-specific slots or factory shipped defaults."""
         has_project_override = self.current_layout_key in self.project_custom_layouts
@@ -660,7 +694,7 @@ class LayoutEditorWindow(ctk.CTkToplevel):
 
         ctk.CTkLabel(
             dialog,
-            text="🔄 Reset Layout Slots",
+            text="Reset Layout Slots",
             font=ctk.CTkFont(family="Georgia", size=16, weight="bold")
         ).pack(anchor="w", padx=20, pady=(16, 8))
 
@@ -675,64 +709,125 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         btn_bar.pack(fill="x", padx=20, pady=(16, 10))
 
         if has_project_override:
-            def reset_project():
-                del self.project_custom_layouts[self.current_layout_key]
-                if self.edition and self.current_layout_key in self.edition.custom_layouts:
-                    del self.edition.custom_layouts[self.current_layout_key]
-                self.layouts_data[self.current_layout_key] = copy.deepcopy(self.global_layouts[self.current_layout_key])
-                self._load_layout_into_editor(self.current_layout_key)
-                if callable(self.on_project_save):
-                    self.on_project_save()
-                dialog.destroy()
-                messagebox.showinfo("Reset Complete", "Reverted issue slots to the global template default.", parent=self)
-
             ctk.CTkButton(
                 btn_bar,
                 text="Revert Issue Slots",
-                fg_color="#8f2d2d",
-                hover_color="#6e2020",
-                command=reset_project
+                fg_color=Theme.BTN_DANGER[0],
+                hover_color=Theme.BTN_DANGER[1],
+                command=lambda: self._reset_project_slots(dialog)
             ).pack(side="left", padx=4)
-
-        def restore_factory():
-            confirm = messagebox.askyesno(
-                "Confirm Factory Reset",
-                "This will restore all shipped templates from the factory source defaults. Any global edits will be reset. Proceed?",
-                parent=dialog
-            )
-            if not confirm:
-                return
-            try:
-                restored = restore_factory_templates(defs_path=self.defs_path, base_dir=self.base_dir)
-                self.global_layouts = restored
-                for k, v in restored.items():
-                    if k not in self.project_custom_layouts:
-                        self.layouts_data[k] = copy.deepcopy(v)
-                self._load_layout_into_editor(self.current_layout_key)
-                if callable(self.on_global_change):
-                    self.on_global_change()
-                dialog.destroy()
-                messagebox.showinfo("Factory Reset Complete", "Global templates restored to original factory defaults.", parent=self)
-            except Exception as e:
-                messagebox.showerror("Error", f"Failed to restore factory defaults: {e}", parent=dialog)
 
         ctk.CTkButton(
             btn_bar,
             text="Restore Factory Defaults",
-            fg_color="#4a3e2c",
-            hover_color="#382e20",
-            command=restore_factory
+            fg_color=Theme.BTN_SECONDARY[0],
+            hover_color=Theme.BTN_SECONDARY[1],
+            command=lambda: self._restore_factory_defaults(dialog)
         ).pack(side="left", padx=4)
 
         ctk.CTkButton(
             btn_bar,
             text="Cancel",
-            fg_color="#333333",
-            hover_color="#444444",
+            fg_color=Theme.BTN_CONTROL[0],
+            hover_color=Theme.BTN_CONTROL[1],
             command=dialog.destroy
         ).pack(side="right", padx=4)
 
     # ------------------ ADD / REMOVE CUSTOM TEMPLATES ------------------
+
+    def _browse_template_image(self, dialog: ctk.CTkToplevel, img_entry, id_entry, name_entry):
+        fn = filedialog.askopenfilename(
+            title="Select Newspaper Background Page Image",
+            filetypes=[("Image Files", "*.png;*.jpg;*.jpeg"), ("All Files", "*.*")],
+            parent=dialog
+        )
+        if not fn:
+            return
+        img_entry.delete(0, "end")
+        img_entry.insert(0, fn)
+        base_name = os.path.splitext(os.path.basename(fn))[0]
+        if not id_entry.get().strip():
+            clean_name = base_name.lower().replace(" ", "_").replace("-", "_")
+            id_entry.insert(0, f"custom_{clean_name}")
+        if not name_entry.get().strip():
+            name_entry.insert(0, base_name.title())
+
+    @staticmethod
+    def _generate_default_slots(w: int, h: int) -> list[dict]:
+        return [
+            {'id': 'masthead_title', 'type': 'title', 'rect': [int(w * 0.1), int(h * 0.02), int(w * 0.8), int(h * 0.08)], 'label': 'Masthead Title'},
+            {'id': 'ear_left', 'type': 'ear_box', 'rect': [int(w * 0.03), int(h * 0.02), int(w * 0.06), int(h * 0.08)], 'label': 'Left Ear'},
+            {'id': 'ear_right', 'type': 'ear_box', 'rect': [int(w * 0.91), int(h * 0.02), int(w * 0.06), int(h * 0.08)], 'label': 'Right Ear'},
+            {'id': 'ticker_bar', 'type': 'ticker', 'rect': [int(w * 0.03), int(h * 0.11), int(w * 0.94), int(h * 0.03)], 'label': 'Ticker Bar'},
+            {'id': 'main_headline', 'type': 'headline', 'rect': [int(w * 0.03), int(h * 0.15), int(w * 0.94), int(h * 0.05)], 'label': 'Main Headline'},
+            {'id': 'hero_photo', 'type': 'photo', 'rect': [int(w * 0.25), int(h * 0.22), int(w * 0.5), int(h * 0.28)], 'label': 'Hero Center Photo'},
+            {'id': 'lead_body', 'type': 'body', 'rect': [int(w * 0.25), int(h * 0.51), int(w * 0.5), int(h * 0.16)], 'label': 'Hero Story Body'},
+            {'id': 'side_col_left', 'type': 'column', 'rect': [int(w * 0.03), int(h * 0.22), int(w * 0.2), int(h * 0.45)], 'label': 'Left Column'},
+            {'id': 'side_col_right', 'type': 'column', 'rect': [int(w * 0.77), int(h * 0.22), int(w * 0.2), int(h * 0.45)], 'label': 'Right Column'},
+            {'id': 'lore_box_1', 'type': 'lore', 'rect': [int(w * 0.03), int(h * 0.69), int(w * 0.3), int(h * 0.26)], 'label': 'Lower Notice 1'},
+            {'id': 'lore_box_2', 'type': 'lore', 'rect': [int(w * 0.35), int(h * 0.69), int(w * 0.3), int(h * 0.26)], 'label': 'Lower Notice 2'},
+            {'id': 'lore_box_3', 'type': 'lore', 'rect': [int(w * 0.67), int(h * 0.69), int(w * 0.3), int(h * 0.26)], 'label': 'Lower Notice 3'},
+            {'id': 'footer', 'type': 'footer', 'rect': [int(w * 0.03), int(h * 0.96), int(w * 0.94), int(h * 0.025)], 'label': 'Bottom Footer'}
+        ]
+
+    def _create_custom_template(self, label: str, raw_tid: str, img_path: str, dialog: ctk.CTkToplevel):
+        if not label or not raw_tid or not img_path:
+            messagebox.showwarning("Missing Fields", "Please provide a name, identifier, and image path.", parent=dialog)
+            return
+
+        if not os.path.isfile(img_path):
+            messagebox.showerror("File Error", f"Image file not found: {img_path}", parent=dialog)
+            return
+
+        tid = "".join(c if c.isalnum() or c == '_' else '_' for c in raw_tid.lower())
+        if tid in self.layouts_data:
+            messagebox.showerror("Conflict", f"A template with ID '{tid}' already exists.", parent=dialog)
+            return
+
+        try:
+            with Image.open(img_path) as im:
+                w, h = im.size
+        except Exception as e:
+            messagebox.showerror("Image Error", f"Could not read image: {e}", parent=dialog)
+            return
+
+        dest_dir = os.path.join(self.base_dir, "assets", "templates", "pages")
+        os.makedirs(dest_dir, exist_ok=True)
+        dest_name = f"{tid}_{os.path.basename(img_path)}"
+        dest_path = os.path.join(dest_dir, dest_name)
+        try:
+            shutil.copy2(img_path, dest_path)
+            rel_page_file = f"assets/templates/pages/{dest_name}"
+        except Exception:
+            rel_page_file = img_path
+
+        new_layout_def = {
+            'page_file': rel_page_file,
+            'width': w,
+            'height': h,
+            'label': label,
+            'slots': self._generate_default_slots(w, h)
+        }
+
+        self.global_layouts[tid] = new_layout_def
+        self.layouts_data[tid] = copy.deepcopy(new_layout_def)
+
+        save_installed_template(tid, new_layout_def, base_dir=self.base_dir)
+        save_global_layout_definitions(self.global_layouts, defs_path=self.defs_path, base_dir=self.base_dir)
+        generate_wireframe_mask_for_layout(tid, new_layout_def, base_dir=self.base_dir)
+
+        self._refresh_layout_dropdown()
+        self._load_layout_into_editor(tid)
+
+        if callable(self.on_global_change):
+            self.on_global_change()
+
+        dialog.destroy()
+        messagebox.showinfo(
+            "Success",
+            f"Custom template '{label}' created as '{tid}.prophettemplate' and opened in editor!",
+            parent=self
+        )
 
     def _show_add_template_dialog(self):
         """Dialog to create a new layout template from an image file."""
@@ -744,7 +839,7 @@ class LayoutEditorWindow(ctk.CTkToplevel):
 
         ctk.CTkLabel(
             dialog,
-            text="➕ Add New Custom Template",
+            text="Add New Custom Template",
             font=ctk.CTkFont(family="Georgia", size=16, weight="bold")
         ).pack(anchor="w", padx=20, pady=(16, 8))
 
@@ -763,110 +858,15 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         img_entry = ctk.CTkEntry(img_row, placeholder_text="Path to full-page background parchment image")
         img_entry.pack(side="left", fill="x", expand=True, padx=(0, 6))
 
-        def browse_img():
-            fn = filedialog.askopenfilename(
-                title="Select Newspaper Background Page Image",
-                filetypes=[("Image Files", "*.png;*.jpg;*.jpeg"), ("All Files", "*.*")],
-                parent=dialog
-            )
-            if fn:
-                img_entry.delete(0, "end")
-                img_entry.insert(0, fn)
-                # Auto suggest id if blank
-                if not id_entry.get().strip():
-                    clean_name = os.path.splitext(os.path.basename(fn))[0].lower().replace(" ", "_").replace("-", "_")
-                    id_entry.insert(0, f"custom_{clean_name}")
-                if not name_entry.get().strip():
-                    name_entry.insert(0, os.path.splitext(os.path.basename(fn))[0].title())
-
-        ctk.CTkButton(img_row, text="Browse...", width=90, command=browse_img).pack(side="right")
+        ctk.CTkButton(
+            img_row,
+            text="Browse...",
+            width=90,
+            command=lambda: self._browse_template_image(dialog, img_entry, id_entry, name_entry)
+        ).pack(side="right")
 
         dim_lbl = ctk.CTkLabel(dialog, text="Dimensions: Will be automatically detected from image.", font=ctk.CTkFont(size=11), text_color="gray70")
         dim_lbl.pack(anchor="w", padx=20, pady=4)
-
-        def create_template():
-            label = name_entry.get().strip()
-            tid = id_entry.get().strip()
-            img_path = img_entry.get().strip()
-
-            if not label or not tid or not img_path:
-                messagebox.showwarning("Missing Fields", "Please provide a name, identifier, and image path.", parent=dialog)
-                return
-
-            if not os.path.isfile(img_path):
-                messagebox.showerror("File Error", f"Image file not found: {img_path}", parent=dialog)
-                return
-
-            # Clean id
-            tid = "".join(c if c.isalnum() or c == '_' else '_' for c in tid.lower())
-            if tid in self.layouts_data:
-                messagebox.showerror("Conflict", f"A template with ID '{tid}' already exists.", parent=dialog)
-                return
-
-            # Measure image
-            try:
-                with Image.open(img_path) as im:
-                    w, h = im.size
-            except Exception as e:
-                messagebox.showerror("Image Error", f"Could not read image: {e}", parent=dialog)
-                return
-
-            # Copy image into assets/templates/pages/
-            dest_dir = os.path.join(self.base_dir, "assets", "templates", "pages")
-            os.makedirs(dest_dir, exist_ok=True)
-            dest_name = f"{tid}_{os.path.basename(img_path)}"
-            dest_path = os.path.join(dest_dir, dest_name)
-            try:
-                shutil.copy2(img_path, dest_path)
-                rel_page_file = f"assets/templates/pages/{dest_name}"
-            except Exception:
-                rel_page_file = img_path
-
-            # Generate default sensible slots for the new template
-            default_slots = [
-                {'id': 'masthead_title', 'type': 'title', 'rect': [int(w * 0.1), int(h * 0.02), int(w * 0.8), int(h * 0.08)], 'label': 'Masthead Title'},
-                {'id': 'ear_left', 'type': 'ear_box', 'rect': [int(w * 0.03), int(h * 0.02), int(w * 0.06), int(h * 0.08)], 'label': 'Left Ear'},
-                {'id': 'ear_right', 'type': 'ear_box', 'rect': [int(w * 0.91), int(h * 0.02), int(w * 0.06), int(h * 0.08)], 'label': 'Right Ear'},
-                {'id': 'ticker_bar', 'type': 'ticker', 'rect': [int(w * 0.03), int(h * 0.11), int(w * 0.94), int(h * 0.03)], 'label': 'Ticker Bar'},
-                {'id': 'main_headline', 'type': 'headline', 'rect': [int(w * 0.03), int(h * 0.15), int(w * 0.94), int(h * 0.05)], 'label': 'Main Headline'},
-                {'id': 'hero_photo', 'type': 'photo', 'rect': [int(w * 0.25), int(h * 0.22), int(w * 0.5), int(h * 0.28)], 'label': 'Hero Center Photo'},
-                {'id': 'lead_body', 'type': 'body', 'rect': [int(w * 0.25), int(h * 0.51), int(w * 0.5), int(h * 0.16)], 'label': 'Hero Story Body'},
-                {'id': 'side_col_left', 'type': 'column', 'rect': [int(w * 0.03), int(h * 0.22), int(w * 0.2), int(h * 0.45)], 'label': 'Left Column'},
-                {'id': 'side_col_right', 'type': 'column', 'rect': [int(w * 0.77), int(h * 0.22), int(w * 0.2), int(h * 0.45)], 'label': 'Right Column'},
-                {'id': 'lore_box_1', 'type': 'lore', 'rect': [int(w * 0.03), int(h * 0.69), int(w * 0.3), int(h * 0.26)], 'label': 'Lower Notice 1'},
-                {'id': 'lore_box_2', 'type': 'lore', 'rect': [int(w * 0.35), int(h * 0.69), int(w * 0.3), int(h * 0.26)], 'label': 'Lower Notice 2'},
-                {'id': 'lore_box_3', 'type': 'lore', 'rect': [int(w * 0.67), int(h * 0.69), int(w * 0.3), int(h * 0.26)], 'label': 'Lower Notice 3'},
-                {'id': 'footer', 'type': 'footer', 'rect': [int(w * 0.03), int(h * 0.96), int(w * 0.94), int(h * 0.025)], 'label': 'Bottom Footer'}
-            ]
-
-            new_layout_def = {
-                'page_file': rel_page_file,
-                'width': w,
-                'height': h,
-                'label': label,
-                'slots': default_slots
-            }
-
-            self.global_layouts[tid] = new_layout_def
-            self.layouts_data[tid] = copy.deepcopy(new_layout_def)
-
-            # Save as individual .prophettemplate file and register
-            save_installed_template(tid, new_layout_def, base_dir=self.base_dir)
-            save_global_layout_definitions(self.global_layouts, defs_path=self.defs_path, base_dir=self.base_dir)
-            generate_wireframe_mask_for_layout(tid, new_layout_def, base_dir=self.base_dir)
-
-            self._refresh_layout_dropdown()
-            self._load_layout_into_editor(tid)
-
-            if callable(self.on_global_change):
-                self.on_global_change()
-
-            dialog.destroy()
-            messagebox.showinfo(
-                "Success",
-                f"Custom template '{label}' created as '{tid}.prophettemplate' and opened in editor!",
-                parent=self
-            )
 
         action_row = ctk.CTkFrame(dialog, fg_color="transparent")
         action_row.pack(fill="x", padx=20, pady=(16, 12))
@@ -874,16 +874,21 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         ctk.CTkButton(
             action_row,
             text="Create Template",
-            fg_color="#3d5a45",
-            hover_color="#2b4736",
-            command=create_template
+            fg_color=Theme.BTN_SUCCESS[0],
+            hover_color=Theme.BTN_SUCCESS[1],
+            command=lambda: self._create_custom_template(
+                name_entry.get().strip(),
+                id_entry.get().strip(),
+                img_entry.get().strip(),
+                dialog
+            )
         ).pack(side="left", padx=4)
 
         ctk.CTkButton(
             action_row,
             text="Cancel",
-            fg_color="#333333",
-            hover_color="#444444",
+            fg_color=Theme.BTN_CONTROL[0],
+            hover_color=Theme.BTN_CONTROL[1],
             command=dialog.destroy
         ).pack(side="right", padx=4)
 
@@ -990,7 +995,7 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         x1, y1 = self._orig_to_canvas(rx, ry)
         x2, y2 = self._orig_to_canvas(rx + rw, ry + rh)
 
-        border_color, light_color = SLOT_COLORS.get(stype, ("#505050", "#FFFFFF"))
+        border_color, _ = SLOT_COLORS.get(stype, ("#505050", "#FFFFFF"))
         is_selected = (idx == self.selected_slot_index)
 
         line_width = 3 if is_selected else 2
@@ -1356,7 +1361,7 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         for idx, s in enumerate(slots):
             stype = s.get("type", "body")
             slabel = s.get("label", s.get("id", f"slot_{idx}"))
-            rx, ry, rw, rh = s["rect"]
+            _, _, rw, rh = s["rect"]
 
             bg_c = "#33261d" if idx == self.selected_slot_index else "#1c1713"
             item_frame = ctk.CTkFrame(self.slots_scroll, fg_color=bg_c, corner_radius=4)

@@ -1,4 +1,5 @@
 """Main application window for The Daily Prophet generator."""
+from __future__ import annotations
 import sys
 import os
 import tkinter as tk
@@ -6,7 +7,7 @@ from tkinter import filedialog, messagebox
 import customtkinter as ctk
 from PIL import Image
 
-from typing import List, Union
+from typing import List, Optional
 from ..models import NewspaperEdition, Story, StoryPriority, PaperTheme, BorderStyle, ExportFormat, LayoutStatus
 from ..sample_data import get_original_hogwarts_edition, get_azkaban_edition, get_sample_edition
 from ..template_engine import generate_newspaper_html
@@ -15,6 +16,7 @@ from ..native_renderer import export_native_image, export_native_pdf, NativeBroa
 from .story_dialog import StoryDialog
 from .preview_window import open_webview_window, open_in_browser, save_temp_preview, open_image_preview
 from .layout_editor_window import LayoutEditorWindow
+from .theme import Theme, IconManager
 from ..generate_masks import load_layout_definitions
 from ..versioning import ProjectMigrator, CURRENT_PROJECT_VERSION
 
@@ -61,7 +63,7 @@ class MainWindow(ctk.CTk):
 
     def _setup_ui(self):
         # 1. TOP MASTHEAD TOOLBAR
-        top_bar = ctk.CTkFrame(self, fg_color=("#2e261f", "#1c1713"), corner_radius=0, height=65)
+        top_bar = ctk.CTkFrame(self, fg_color=Theme.HEADER_BG, corner_radius=0, height=65)
         top_bar.pack(fill="x", padx=0, pady=0)
 
         title_box = ctk.CTkFrame(top_bar, fg_color="transparent")
@@ -84,7 +86,7 @@ class MainWindow(ctk.CTk):
             titles_text_box,
             text="THE DAILY PROPHET",
             font=ctk.CTkFont(family="Georgia", size=20, weight="bold"),
-            text_color="#f5ede0",
+            text_color=Theme.TEXT_PARCHMENT,
         )
         app_title.pack(anchor="w")
 
@@ -92,7 +94,7 @@ class MainWindow(ctk.CTk):
             titles_text_box,
             text="Wizarding Broadsheet Generator & Layout Publisher",
             font=ctk.CTkFont(family="Georgia", size=11, slant="italic"),
-            text_color="#c2b6a4",
+            text_color=Theme.TEXT_MUTED,
         )
         app_sub.pack(anchor="w")
 
@@ -102,55 +104,55 @@ class MainWindow(ctk.CTk):
 
         ctk.CTkButton(
             top_btns,
-            text="🏰 Hogwarts Issue",
-            width=150,
-            fg_color="#732525",
-            hover_color="#591c1c",
+            text="Hogwarts Issue",
+            width=130,
+            fg_color=Theme.BTN_PRIMARY[0],
+            hover_color=Theme.BTN_PRIMARY[1],
             command=self._load_hogwarts_original,
         ).pack(side="left", padx=3)
 
         ctk.CTkButton(
             top_btns,
-            text="⚡ Azkaban Edition",
+            text="Azkaban Edition",
             width=130,
-            fg_color="#3d342a",
-            hover_color="#54483a",
+            fg_color=Theme.BTN_SECONDARY[0],
+            hover_color=Theme.BTN_SECONDARY[1],
             command=self._load_azkaban_sample,
         ).pack(side="left", padx=3)
 
         ctk.CTkButton(
             top_btns,
-            text="📂 Open...",
-            width=80,
-            fg_color="#3d342a",
-            hover_color="#54483a",
+            text="Open...",
+            width=75,
+            fg_color=Theme.BTN_NEUTRAL[0],
+            hover_color=Theme.BTN_NEUTRAL[1],
             command=self._open_project,
         ).pack(side="left", padx=3)
 
         ctk.CTkButton(
             top_btns,
-            text="💾 Save",
-            width=70,
-            fg_color="#3d342a",
-            hover_color="#54483a",
+            text="Save",
+            width=65,
+            fg_color=Theme.BTN_SECONDARY[0],
+            hover_color=Theme.BTN_SECONDARY[1],
             command=self._save_project,
         ).pack(side="left", padx=3)
 
         ctk.CTkButton(
             top_btns,
-            text="💾 Save As...",
-            width=90,
-            fg_color="#3d342a",
-            hover_color="#54483a",
+            text="Save As...",
+            width=85,
+            fg_color=Theme.BTN_SECONDARY[0],
+            hover_color=Theme.BTN_SECONDARY[1],
             command=self._save_as_project,
         ).pack(side="left", padx=3)
 
         ctk.CTkButton(
             top_btns,
-            text="✨ New",
-            width=65,
-            fg_color="#3d342a",
-            hover_color="#54483a",
+            text="New",
+            width=60,
+            fg_color=Theme.BTN_NEUTRAL[0],
+            hover_color=Theme.BTN_NEUTRAL[1],
             command=self._new_project,
         ).pack(side="left", padx=3)
 
@@ -238,34 +240,34 @@ class MainWindow(ctk.CTk):
 
         ctk.CTkButton(
             action_btns,
-            text="🔮 Preview Publication",
+            text="Preview Publication",
             width=165,
             height=36,
             font=ctk.CTkFont(size=13, weight="bold"),
-            fg_color="#8f2d2d",
-            hover_color="#6e2020",
+            fg_color=Theme.BTN_PRIMARY[0],
+            hover_color=Theme.BTN_PRIMARY[1],
             command=self._preview_newspaper,
         ).pack(side="left", padx=6)
 
         ctk.CTkButton(
             action_btns,
-            text="🖨️ Export PDF",
-            width=140,
+            text="Export PDF",
+            width=135,
             height=36,
             font=ctk.CTkFont(size=12, weight="bold"),
-            fg_color="#2b4736",
-            hover_color="#1d3326",
+            fg_color=Theme.BTN_SUCCESS[0],
+            hover_color=Theme.BTN_SUCCESS[1],
             command=self._export_pdf,
         ).pack(side="left", padx=6)
 
         ctk.CTkButton(
             action_btns,
-            text="🖼️ Export Image",
-            width=140,
+            text="Export Image",
+            width=135,
             height=36,
             font=ctk.CTkFont(size=12, weight="bold"),
-            fg_color="#385473",
-            hover_color="#263b52",
+            fg_color=Theme.BTN_NEUTRAL[0],
+            hover_color=Theme.BTN_NEUTRAL[1],
             command=self._export_image,
         ).pack(side="left", padx=6)
 
@@ -290,10 +292,10 @@ class MainWindow(ctk.CTk):
 
         ctk.CTkButton(
             stories_bar,
-            text="➕ Add Story",
+            text="Add Story",
             width=100,
-            fg_color="#8f2d2d",
-            hover_color="#6e2020",
+            fg_color=Theme.BTN_PRIMARY[0],
+            hover_color=Theme.BTN_PRIMARY[1],
             command=self._add_story,
         ).pack(side="right", padx=(6, 0))
 
@@ -305,10 +307,10 @@ class MainWindow(ctk.CTk):
         list_ctrls = ctk.CTkFrame(left_pane, fg_color="transparent")
         list_ctrls.pack(fill="x", padx=12, pady=(6, 10))
 
-        ctk.CTkButton(list_ctrls, text="⬆️ Move Up", width=90, command=self._move_story_up).pack(side="left", padx=(0, 4))
-        ctk.CTkButton(list_ctrls, text="⬇️ Move Down", width=90, command=self._move_story_down).pack(side="left", padx=4)
-        ctk.CTkButton(list_ctrls, text="✏️ Edit Selected", width=110, command=self._edit_selected_story).pack(side="left", padx=4)
-        ctk.CTkButton(list_ctrls, text="🗑️ Delete", width=80, fg_color="gray40", hover_color="#993333", command=self._delete_selected_story).pack(side="right")
+        ctk.CTkButton(list_ctrls, text="Move Up", width=85, fg_color=Theme.BTN_CONTROL[0], hover_color=Theme.BTN_CONTROL[1], command=self._move_story_up).pack(side="left", padx=(0, 4))
+        ctk.CTkButton(list_ctrls, text="Move Down", width=85, fg_color=Theme.BTN_CONTROL[0], hover_color=Theme.BTN_CONTROL[1], command=self._move_story_down).pack(side="left", padx=4)
+        ctk.CTkButton(list_ctrls, text="Edit Story", width=95, fg_color=Theme.BTN_SECONDARY[0], hover_color=Theme.BTN_SECONDARY[1], command=self._edit_selected_story).pack(side="left", padx=4)
+        ctk.CTkButton(list_ctrls, text="Delete", width=75, fg_color=Theme.BTN_DANGER[0], hover_color=Theme.BTN_DANGER[1], command=self._delete_selected_story).pack(side="right")
 
         # RIGHT PANE: Story Inspector
         self.right_pane = ctk.CTkFrame(split_frame, width=380)
@@ -642,7 +644,7 @@ class MainWindow(ctk.CTk):
 
         return card
 
-    def _select_story(self, story_id: str):
+    def _select_story(self, story_id: str | None = None):
         self.selected_story_id = story_id
 
         for sid, card in self.story_item_frames.items():
@@ -866,8 +868,8 @@ class MainWindow(ctk.CTk):
 
     def _open_in_browser(self):
         html = self._generate_html(embed_images=True, export_mode=False)
-        path = open_in_browser(html)
-        self.status_lbl.configure(text=f"Opened publication in browser.")
+        open_in_browser(html)
+        self.status_lbl.configure(text="Opened publication in browser.")
 
     def _export_html(self):
         html = self._generate_html(embed_images=True, export_mode=False)
@@ -948,7 +950,7 @@ class MainWindow(ctk.CTk):
             if hasattr(self, "status_lbl"):
                 self.status_lbl.configure(text=f"Layout changed to: {choice}")
 
-    def _get_selected_template_ids(self) -> Union[str, List[str]]:
+    def _get_selected_template_ids(self) -> str | List[str]:
         selected = self.template_selector.get()
         if hasattr(self, "layout_map") and selected in self.layout_map:
             return self.layout_map[selected]

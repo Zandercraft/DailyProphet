@@ -7,6 +7,7 @@ from PIL import Image
 
 from ..models import Story, StoryPriority, ImageAlign, BoxStyle
 from .library_dialog import ImageLibraryDialog
+from .theme import Theme, IconManager
 
 
 class StoryDialog(ctk.CTkToplevel):
@@ -27,16 +28,11 @@ class StoryDialog(ctk.CTkToplevel):
 
     def _setup_ui(self):
         # Header banner
-        header = ctk.CTkFrame(self, fg_color=("#3a2f26", "#251e18"), corner_radius=0)
-        header.pack(fill="x", padx=0, pady=(0, 10))
-
-        title_lbl = ctk.CTkLabel(
-            header,
-            text="📜 Story Article Editor",
-            font=ctk.CTkFont(family="Georgia", size=18, weight="bold"),
-            text_color="#f0e6d6",
+        Theme.create_header_banner(
+            self,
+            title="Story Article Editor",
+            subtitle="Configure headline, body text, priority, and cutout artwork"
         )
-        title_lbl.pack(anchor="w", padx=20, pady=10)
 
         # Scrollable container for form fields
         scroll_container = ctk.CTkScrollableFrame(self)
@@ -117,7 +113,7 @@ class StoryDialog(ctk.CTkToplevel):
         browse_btn = ctk.CTkButton(picker_row, text="Browse Image...", width=120, command=self._browse_image)
         browse_btn.pack(side="left", padx=(0, 6))
 
-        lib_btn = ctk.CTkButton(picker_row, text="🏰 Image Library...", width=130, fg_color="#543d2b", hover_color="#70523a", command=lambda: self._open_library(is_cutout_target=False))
+        lib_btn = ctk.CTkButton(picker_row, text="Image Library...", width=125, fg_color=Theme.BTN_SECONDARY[0], hover_color=Theme.BTN_SECONDARY[1], command=lambda: self._open_library(is_cutout_target=False))
         lib_btn.pack(side="left", padx=(0, 6))
 
         clear_img_btn = ctk.CTkButton(picker_row, text="Clear", width=55, fg_color="gray50", hover_color="gray40", command=self._clear_image)
@@ -137,7 +133,7 @@ class StoryDialog(ctk.CTkToplevel):
 
         ctk.CTkLabel(
             cutout_box,
-            text="✨ Inline Transparent Cutout (Characters, Creatures, Artifacts):",
+            text="Inline Transparent Cutout (Characters, Creatures, Artifacts):",
             font=ctk.CTkFont(size=12, weight="bold"),
             text_color="#f5ede0",
         ).pack(anchor="w", padx=10, pady=(6, 2))
@@ -145,7 +141,7 @@ class StoryDialog(ctk.CTkToplevel):
         ctk.CTkLabel(
             cutout_box,
             text="Transparent PNGs allow text to flow and morph directly around the character silhouette.",
-            font=ctk.CTkFont(size=10.5, slant="italic"),
+            font=ctk.CTkFont(size=11, slant="italic"),
             text_color="#c2b4a1",
         ).pack(anchor="w", padx=10, pady=(0, 6))
 
@@ -160,8 +156,8 @@ class StoryDialog(ctk.CTkToplevel):
             cutout_row,
             text="Select from Library...",
             width=140,
-            fg_color="#6e1919",
-            hover_color="#8a2020",
+            fg_color=Theme.BTN_PRIMARY[0],
+            hover_color=Theme.BTN_PRIMARY[1],
             command=lambda: self._open_library(is_cutout_target=True),
         )
         cutout_lib_btn.pack(side="left", padx=(0, 6))
@@ -226,8 +222,8 @@ class StoryDialog(ctk.CTkToplevel):
         save_btn = ctk.CTkButton(
             action_bar,
             text="Save Story Article",
-            fg_color="#8c2828",
-            hover_color="#6e1f1f",
+            fg_color=Theme.BTN_PRIMARY[0],
+            hover_color=Theme.BTN_PRIMARY[1],
             font=ctk.CTkFont(weight="bold"),
             command=self._save_story,
             width=160,
