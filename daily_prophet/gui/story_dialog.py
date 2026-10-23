@@ -5,7 +5,7 @@ from tkinter import filedialog, messagebox
 import customtkinter as ctk
 from PIL import Image
 
-from ..models import Story, StoryPriority
+from ..models import Story, StoryPriority, ImageAlign, BoxStyle
 from .library_dialog import ImageLibraryDialog
 
 
@@ -174,8 +174,8 @@ class StoryDialog(ctk.CTkToplevel):
         align_row.pack(fill="x", padx=10, pady=(0, 8))
 
         ctk.CTkLabel(align_row, text="Cutout Alignment:").pack(side="left", padx=(0, 8))
-        self.inline_align_var = ctk.StringVar(value=self.story.inline_image_align or "right")
-        self.align_menu = ctk.CTkOptionMenu(align_row, variable=self.inline_align_var, values=["right", "left"], width=110)
+        self.inline_align_var = ctk.StringVar(value=str(self.story.inline_image_align or ImageAlign.RIGHT.value))
+        self.align_menu = ctk.CTkOptionMenu(align_row, variable=self.inline_align_var, values=ImageAlign.choices(), width=110)
         self.align_menu.pack(side="left")
 
         # 4. PULL QUOTE & BOX STYLE
@@ -190,11 +190,11 @@ class StoryDialog(ctk.CTkToplevel):
         box_row.pack(fill="x", padx=12, pady=(0, 10))
 
         ctk.CTkLabel(box_row, text="Box Style (for Notices/Briefs):").pack(side="left", padx=(0, 10))
-        self.box_style_var = ctk.StringVar(value=self.story.box_style or "standard")
+        self.box_style_var = ctk.StringVar(value=str(self.story.box_style or BoxStyle.STANDARD.value))
         self.box_style_menu = ctk.CTkOptionMenu(
             box_row,
             variable=self.box_style_var,
-            values=["standard", "ornate_box", "parchment_scroll", "wanted_poster"],
+            values=BoxStyle.choices(),
             width=180,
         )
         self.box_style_menu.pack(side="left")

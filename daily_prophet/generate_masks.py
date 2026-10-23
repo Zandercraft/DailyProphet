@@ -16,103 +16,26 @@ from .template_package import (
     SHIPPED_TEMPLATES_DIR
 )
 
-SHIPPED_DEFAULTS_FILE = os.path.join(os.path.dirname(__file__), "default_templates", "layout_definitions.json")
-GLOBAL_LAYOUTS_FILE = os.path.join("assets", "templates", "layout_definitions.json")
-GLOBAL_BACKUP_FILE = os.path.join("assets", "templates", "layout_definitions.json.bak")
+from .layout_models import SlotType
+
 MASKS_DIR = os.path.join("assets", "templates", "masks")
+GLOBAL_LAYOUTS_FILE = os.path.join("assets", "templates", "layout_definitions.json")
 
-SLOT_COLORS = {
-    'title': (74, 35, 90, 160),         # Royal Purple
-    'banner': (40, 40, 60, 140),       # Dark Slate
-    'ear_box': (100, 40, 40, 140),     # Dark Maroon
-    'slogan': (50, 50, 50, 120),       # Charcoal
-    'ticker': (90, 70, 30, 130),       # Bronze
-    'headline': (139, 30, 30, 170),     # Crimson Red
-    'subheadline': (160, 60, 40, 130),  # Amber
-    'photo': (30, 86, 49, 180),        # Forest Green
-    'body': (27, 54, 93, 140),         # Ink Navy
-    'column': (27, 54, 93, 130),       # Column Blue
-    'quote': (153, 101, 21, 160),      # Amber Gold
-    'lore': (92, 53, 102, 140),        # Plum
-    'divider': (80, 80, 80, 140),      # Divider
-    'footer': (40, 40, 40, 150)        # Footer
-}
-
-OUTLINE_COLORS = {
-    'title': (120, 60, 150),
-    'banner': (80, 80, 120),
-    'ear_box': (160, 60, 60),
-    'slogan': (100, 100, 100),
-    'ticker': (140, 110, 50),
-    'headline': (190, 40, 40),
-    'subheadline': (210, 90, 60),
-    'photo': (40, 140, 80),
-    'body': (45, 90, 155),
-    'column': (45, 90, 155),
-    'quote': (210, 145, 30),
-    'lore': (140, 80, 160),
-    'divider': (120, 120, 120),
-    'footer': (90, 90, 90)
-}
+# Unified color mappings derived directly from the SlotType enum
+SLOT_COLORS = {s.value: s.mask_fill for s in SlotType}
+OUTLINE_COLORS = {s.value: s.mask_outline for s in SlotType}
 
 
 def load_layout_definitions(defs_path: Optional[str] = None, base_dir: str = ".") -> Dict[str, Any]:
-    """Loads layout definitions from individual .prophettemplate files or legacy fallback."""
-    # First priority: Load individual .prophettemplate files from installed / shipped directories
-    pkg_templates = load_all_installed_templates(base_dir=base_dir)
-    if pkg_templates:
-        # Also ensure layout_definitions.json is synchronized for compatibility
-        target_path = defs_path or os.path.join(base_dir, GLOBAL_LAYOUTS_FILE)
-        try:
-            os.makedirs(os.path.dirname(os.path.abspath(target_path)), exist_ok=True)
-            with open(target_path, "w", encoding="utf-8") as f:
-                json.dump(pkg_templates, f, indent=2, ensure_ascii=False)
-        except Exception:
-            pass
-        return pkg_templates
-
-    target_path = defs_path or os.path.join(base_dir, GLOBAL_LAYOUTS_FILE)
-
-    if os.path.isfile(target_path):
-        try:
-            with open(target_path, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception as e:
-            print(f"Warning: Failed to load {target_path} ({e}). Falling back to shipped defaults.")
-
-    # Try shipped defaults bundled in source code
-    if os.path.isfile(SHIPPED_DEFAULTS_FILE):
-        try:
-            with open(SHIPPED_DEFAULTS_FILE, "r", encoding="utf-8") as f:
-                defaults = json.load(f)
-            os.makedirs(os.path.dirname(os.path.abspath(target_path)), exist_ok=True)
-            with open(target_path, "w", encoding="utf-8") as f:
-                json.dump(defaults, f, indent=2)
-            return defaults
-        except Exception as e:
-            print(f"Error loading shipped defaults from {SHIPPED_DEFAULTS_FILE}: {e}")
-
-    return {}
+    """Loads all layout definitions directly from installed .prophettemplate packages."""
+    return load_all_installed_templates(base_dir=base_dir)
 
 
 def save_global_layout_definitions(layouts: Dict[str, Any], defs_path: Optional[str] = None, base_dir: str = ".") -> bool:
     """Saves layout definitions to individual .prophettemplate files (one layout per file).
     Creates a .bak backup file for each modified template upon first edit.
     """
-    target_path = defs_path or os.path.join(base_dir, GLOBAL_LAYOUTS_FILE)
-    backup_path = target_path + ".bak"
-
-    os.makedirs(os.path.dirname(os.path.abspath(target_path)), exist_ok=True)
-
-    # First-time backup of composite json:
-    if os.path.isfile(target_path) and not os.path.isfile(backup_path):
-        try:
-            shutil.copy2(target_path, backup_path)
-            print(f"Created first-modification template backup: {backup_path}")
-        except Exception as e:
-            print(f"Warning: Could not create template backup: {e}")
-
-    # Save each individual template to its own .prophettemplate file
+    success = True
     for layout_key, layout_data in layouts.items():
         if layout_key.startswith("additional_"):
             continue
@@ -120,14 +43,8 @@ def save_global_layout_definitions(layouts: Dict[str, Any], defs_path: Optional[
             save_installed_template(layout_key, layout_data, base_dir=base_dir)
         except Exception as e:
             print(f"Error packaging {layout_key}.prophettemplate: {e}")
-
-    try:
-        with open(target_path, "w", encoding="utf-8") as f:
-            json.dump(layouts, f, indent=2, ensure_ascii=False)
-        return True
-    except Exception as e:
-        print(f"Error saving global layouts to {target_path}: {e}")
-        return False
+            success = False
+    return success
 
 
 def restore_factory_templates(defs_path: Optional[str] = None, base_dir: str = ".") -> Dict[str, Any]:

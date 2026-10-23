@@ -6,26 +6,133 @@ import json
 import os
 import zipfile
 import copy
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from .versioning import FormatVersion, CURRENT_PROJECT_VERSION, project_migration_pipeline
+from .layout_models import SlotType, LayoutSlot, LayoutDefinition, LayoutStatus
 
 
 class StoryPriority(str, Enum):
+    """Priority level determining layout placement hierarchy."""
     COVER = "Cover Story (Hero)"
     MAJOR = "Major Feature / Side Lead"
     COLUMN = "Side Column"
     SNIPPET = "Notice / Brief / Lore"
 
     @classmethod
-    def choices(cls):
+    def choices(cls) -> List[str]:
         return [p.value for p in cls]
 
     @classmethod
-    def from_string(cls, val: str) -> "StoryPriority":
+    def from_string(cls, val: Any) -> "StoryPriority":
+        if isinstance(val, StoryPriority):
+            return val
+        s_val = str(val).strip()
         for member in cls:
-            if member.value == val or member.name == val:
+            if member.value == s_val or member.name == s_val:
                 return member
         return cls.COLUMN
+
+
+class ImageAlign(str, Enum):
+    """Alignment direction for inline transparent cutout silhouettes."""
+    RIGHT = "right"
+    LEFT = "left"
+    CENTER = "center"
+
+    @classmethod
+    def choices(cls) -> List[str]:
+        return [m.value for m in cls]
+
+    @classmethod
+    def from_string(cls, val: Any) -> "ImageAlign":
+        if isinstance(val, ImageAlign):
+            return val
+        s_val = str(val).lower().strip()
+        for member in cls:
+            if member.value == s_val or member.name.lower() == s_val:
+                return member
+        return cls.RIGHT
+
+
+class BoxStyle(str, Enum):
+    """Styling motif for notice boxes, decrees, quotes, and callouts."""
+    STANDARD = "standard"
+    ORNATE_BOX = "ornate_box"
+    PARCHMENT_SCROLL = "parchment_scroll"
+    WANTED_POSTER = "wanted_poster"
+    SPEECH_QUOTE = "speech_quote"
+    BANNER_FEATURE = "banner_feature"
+
+    @classmethod
+    def choices(cls) -> List[str]:
+        return [m.value for m in cls]
+
+    @classmethod
+    def from_string(cls, val: Any) -> "BoxStyle":
+        if isinstance(val, BoxStyle):
+            return val
+        s_val = str(val).lower().strip()
+        for member in cls:
+            if member.value == s_val or member.name.lower() == s_val:
+                return member
+        return cls.STANDARD
+
+
+class PaperTheme(str, Enum):
+    """Color palette and paper texture theme for newspaper rendering."""
+    ORIGINAL_PROPHET = "original_prophet"
+    PARCHMENT = "parchment"
+    CLASSIC_NEWSPRINT = "classic_newsprint"
+    CLEAN_PRINT = "clean_print"
+
+    @classmethod
+    def choices(cls) -> List[str]:
+        return [m.value for m in cls]
+
+    @classmethod
+    def from_string(cls, val: Any) -> "PaperTheme":
+        if isinstance(val, PaperTheme):
+            return val
+        s_val = str(val).lower().strip()
+        for member in cls:
+            if member.value == s_val or member.name.lower() == s_val:
+                return member
+        return cls.ORIGINAL_PROPHET
+
+
+class BorderStyle(str, Enum):
+    """Decorative broadsheet boundary engraved rule styling."""
+    ORNATE_ENGRAVED = "ornate_engraved"
+    WEATHERED_BORDER = "weathered_border"
+    CLEAN_RULED = "clean_ruled"
+
+    @classmethod
+    def choices(cls) -> List[str]:
+        return [m.value for m in cls]
+
+    @classmethod
+    def from_string(cls, val: Any) -> "BorderStyle":
+        if isinstance(val, BorderStyle):
+            return val
+        s_val = str(val).lower().strip()
+        for member in cls:
+            if member.value == s_val or member.name.lower() == s_val:
+                return member
+        return cls.ORNATE_ENGRAVED
+
+
+class ExportFormat(str, Enum):
+    """File export format targets."""
+    PROJECT = "prophet"
+    TEMPLATE = "prophettemplate"
+    HTML = "html"
+    PDF = "pdf"
+    PNG = "png"
+    JPEG = "jpg"
+
+    @classmethod
+    def choices(cls) -> List[str]:
+        return [m.value for m in cls]
 
 
 @dataclass
@@ -34,24 +141,34 @@ class Story:
     headline: str = ""
     subheadline: str = ""
     author: str = ""
-    priority: str = StoryPriority.COVER.value
+    priority: StoryPriority = StoryPriority.COVER
     body: str = ""
     image_path: str = ""
     image_caption: str = ""
     inline_image_path: str = ""  # Transparent cutout image for inline text-wrapping
-    inline_image_align: str = "right"  # "right", "left", "center"
+    inline_image_align: ImageAlign = ImageAlign.RIGHT
     character_tag: str = ""  # e.g., "Professor Fig", "Severus Snape", "Sorting Hat"
     pull_quote: str = ""
-    box_style: str = "standard"  # "standard", "ornate_box", "parchment_scroll", "wanted_poster", "speech_quote", "banner_feature"
+    box_style: BoxStyle = BoxStyle.STANDARD
     location_tag: str = ""  # e.g., "HOGWARTS, SCOTLAND", "LONDON", "HOGSMEADE"
 
     def to_dict(self):
-        return asdict(self)
+        d = asdict(self)
+        d["priority"] = self.priority.value if isinstance(self.priority, StoryPriority) else str(self.priority)
+        d["inline_image_align"] = self.inline_image_align.value if isinstance(self.inline_image_align, ImageAlign) else str(self.inline_image_align)
+        d["box_style"] = self.box_style.value if isinstance(self.box_style, BoxStyle) else str(self.box_style)
+        return d
 
     @classmethod
     def from_dict(cls, data: dict) -> "Story":
         valid_keys = {f.name for f in cls.__dataclass_fields__.values()}
         filtered = {k: v for k, v in data.items() if k in valid_keys}
+        if "priority" in filtered:
+            filtered["priority"] = StoryPriority.from_string(filtered["priority"])
+        if "inline_image_align" in filtered:
+            filtered["inline_image_align"] = ImageAlign.from_string(filtered["inline_image_align"])
+        if "box_style" in filtered:
+            filtered["box_style"] = BoxStyle.from_string(filtered["box_style"])
         return cls(**filtered)
 
 
@@ -70,8 +187,8 @@ class NewspaperEdition:
     top_right_banner: str = "HOGWARTS COMMUNITY & CASTLE DISPATCH"
     breaking_banner: str = ""
     footer_slogan: str = "GOOD NEWS, BRIGHTER DAYS, A MORE MAGICAL TOMORROW"
-    theme: str = "original_prophet"  # "original_prophet", "parchment", "classic_newsprint", "clean_print"
-    border_style: str = "ornate_engraved"  # "ornate_engraved", "weathered_border", "clean_ruled"
+    theme: PaperTheme = PaperTheme.ORIGINAL_PROPHET
+    border_style: BorderStyle = BorderStyle.ORNATE_ENGRAVED
     magical_motion: bool = True
     quote_author: str = "PROFESSOR FIG"
     quote_text: str = "It is our choices that show what we truly are, far more than our abilities."
@@ -87,6 +204,8 @@ class NewspaperEdition:
     def to_dict(self):
         d = asdict(self)
         d["stories"] = [s.to_dict() for s in self.stories]
+        d["theme"] = self.theme.value if isinstance(self.theme, PaperTheme) else str(self.theme)
+        d["border_style"] = self.border_style.value if isinstance(self.border_style, BorderStyle) else str(self.border_style)
         return d
 
     @classmethod
@@ -95,6 +214,10 @@ class NewspaperEdition:
         stories = [Story.from_dict(s) for s in stories_data]
         valid_keys = {f.name for f in cls.__dataclass_fields__.values()}
         filtered = {k: v for k, v in data.items() if k in valid_keys and k != "stories"}
+        if "theme" in filtered:
+            filtered["theme"] = PaperTheme.from_string(filtered["theme"])
+        if "border_style" in filtered:
+            filtered["border_style"] = BorderStyle.from_string(filtered["border_style"])
         return cls(stories=stories, **filtered)
 
     def save_to_file(self, file_path: str):

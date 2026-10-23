@@ -6,6 +6,7 @@ to establish a clean, future-proof foundation for file format evolution.
 from __future__ import annotations
 import copy
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Dict, Any, List, Optional, Callable, TypeVar, Generic, Tuple
 
 T = TypeVar("T", bound=Dict[str, Any])
@@ -45,12 +46,23 @@ CURRENT_PROJECT_VERSION = PROJECT_FORMAT_V1
 CURRENT_TEMPLATE_VERSION = TEMPLATE_FORMAT_V1
 
 
+class CompatibilitySeverity(str, Enum):
+    """Severity classification for features downgraded across format versions."""
+    WARNING = "warning"
+    LOSSY = "lossy"
+    BREAKING = "breaking"
+
+    @classmethod
+    def choices(cls) -> List[str]:
+        return [m.value for m in cls]
+
+
 @dataclass
 class CompatibilityIssue:
     """Represents a feature or field that cannot be natively preserved when downgrading."""
     feature_name: str
     description: str
-    severity: str = "warning"  # "warning", "lossy", "breaking"
+    severity: CompatibilitySeverity = CompatibilitySeverity.WARNING
 
 
 class SchemaMigrationStep(Generic[T]):

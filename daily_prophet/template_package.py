@@ -13,6 +13,7 @@ import zipfile
 from typing import Dict, Any, Optional, List
 from PIL import Image
 from .versioning import FormatVersion, CURRENT_TEMPLATE_VERSION, template_migration_pipeline
+from .layout_models import LayoutDefinition, LayoutSlot, SlotType, LayoutStatus
 
 SHIPPED_TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "default_templates")
 INSTALLED_TEMPLATES_DIR = os.path.join("assets", "templates", "installed")
@@ -27,28 +28,9 @@ def is_layout_modified(edition_layout: Optional[Dict[str, Any]], local_layout: O
     """
     if not edition_layout or not local_layout:
         return False
-
-    e_slots = edition_layout.get("slots", [])
-    l_slots = local_layout.get("slots", [])
-
-    if len(e_slots) != len(l_slots):
-        return True
-
-    l_map = {s.get("id"): s for s in l_slots if "id" in s}
-
-    for es in e_slots:
-        sid = es.get("id")
-        if sid not in l_map:
-            return True
-        ls = l_map[sid]
-        if list(es.get("rect", [])) != list(ls.get("rect", [])):
-            return True
-        if es.get("type") != ls.get("type"):
-            return True
-        if es.get("label") != ls.get("label"):
-            return True
-
-    return False
+    e_def = LayoutDefinition.from_dict(edition_layout) if isinstance(edition_layout, dict) else edition_layout
+    l_def = LayoutDefinition.from_dict(local_layout) if isinstance(local_layout, dict) else local_layout
+    return e_def.is_modified_from(l_def)
 
 
 def create_template_package(

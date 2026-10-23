@@ -7,7 +7,7 @@ import customtkinter as ctk
 from PIL import Image
 
 from typing import List, Union
-from ..models import NewspaperEdition, Story, StoryPriority
+from ..models import NewspaperEdition, Story, StoryPriority, PaperTheme, BorderStyle, ExportFormat, LayoutStatus
 from ..sample_data import get_original_hogwarts_edition, get_azkaban_edition, get_sample_edition
 from ..template_engine import generate_newspaper_html
 from ..pdf_exporter import export_html_to_pdf, export_html_to_image
@@ -468,11 +468,11 @@ class MainWindow(ctk.CTk):
         t_row.pack(fill="x", padx=12, pady=(0, 10))
 
         ctk.CTkLabel(t_row, text="Broadsheet Theme:").pack(side="left", padx=(0, 12))
-        self.theme_var = ctk.StringVar(value="original_prophet")
+        self.theme_var = ctk.StringVar(value=PaperTheme.ORIGINAL_PROPHET.value)
         self.theme_menu = ctk.CTkOptionMenu(
             t_row,
             variable=self.theme_var,
-            values=["original_prophet", "parchment", "classic_newsprint", "clean_print"],
+            values=PaperTheme.choices(),
             width=220,
         )
         self.theme_menu.pack(side="left")
@@ -940,8 +940,10 @@ class MainWindow(ctk.CTk):
 
             from ..template_package import is_layout_modified
             is_mod = is_layout_modified(edition_layout, local_layout) if (edition_layout and local_layout) else False
+            is_bundled = meta.get("bundled", True)
+            status = LayoutStatus.determine(is_bundled, is_mod)
 
-            badge = " • [Modified]" if is_mod else ""
+            badge = " • [Modified]" if status == LayoutStatus.MODIFIED else ""
             self.layout_info_lbl.configure(text=f"{w}x{h} Broadsheet • {slots_n} Content Slots{badge}")
             if hasattr(self, "status_lbl"):
                 self.status_lbl.configure(text=f"Layout changed to: {choice}")

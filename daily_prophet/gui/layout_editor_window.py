@@ -24,10 +24,7 @@ from ..generate_masks import (
     save_global_layout_definitions,
     generate_wireframe_mask_for_layout,
     restore_factory_templates,
-    build_all_layouts,
-    GLOBAL_LAYOUTS_FILE,
-    GLOBAL_BACKUP_FILE,
-    SHIPPED_DEFAULTS_FILE
+    build_all_layouts
 )
 from ..template_package import (
     create_template_package,
@@ -41,23 +38,11 @@ from ..template_package import (
     SHIPPED_TEMPLATES_DIR
 )
 
-# Color palettes for slot types
-SLOT_COLORS = {
-    'headline': ('#8B1E1E', '#FF4D4D'),       # Deep Crimson
-    'subheadline': ('#B85D19', '#FFA059'),    # Rust Amber
-    'photo': ('#1E5631', '#4DFF88'),          # Forest Emerald Green
-    'body': ('#1B365D', '#66A3FF'),           # Ink Navy
-    'column': ('#2B4C7E', '#7DB4FF'),         # Column Blue
-    'title': ('#4A235A', '#D980FA'),          # Royal Purple
-    'ear_box': ('#641E1E', '#FF7070'),        # Dark Maroon
-    'quote': ('#996515', '#FFD159'),          # Amber Gold
-    'lore': ('#5C3566', '#E284F7'),           # Plum Lore
-    'ticker': ('#5A461E', '#E6C687'),         # Bronze
-    'banner': ('#28283C', '#A8A8D0'),         # Dark Slate
-    'footer': ('#282828', '#B0B0B0')          # Charcoal
-}
+from ..layout_models import SlotType, LayoutStatus, LayoutSlot, LayoutDefinition
 
-SLOT_TYPES = list(SLOT_COLORS.keys())
+# Color palettes dynamically mapped from SlotType enumeration
+SLOT_COLORS = {s.value: s.ui_colors for s in SlotType}
+SLOT_TYPES = SlotType.choices()
 BUILTIN_SHIPPED_LAYOUTS = [f"layout_{i}" for i in range(1, 10)]
 
 
@@ -89,8 +74,8 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         self.attributes("-topmost", True)
         self.after(80, lambda: self._finalize_focus())
 
-        self.defs_path = os.path.join(self.base_dir, GLOBAL_LAYOUTS_FILE)
-        self.global_layouts = load_layout_definitions(defs_path=self.defs_path, base_dir=self.base_dir)
+        self.defs_path = None
+        self.global_layouts = load_layout_definitions(base_dir=self.base_dir)
         self.project_custom_layouts = dict(self.edition.custom_layouts) if (self.edition and hasattr(self.edition, "custom_layouts")) else {}
 
         # Working dictionary of layouts: global defaults overlaid with any project-level custom slots
@@ -202,7 +187,7 @@ class LayoutEditorWindow(ctk.CTkToplevel):
             command=self._export_template_package
         ).pack(side="left", padx=2)
 
-        ctk.CTkButton(
+        self.delete_btn = ctk.CTkButton(
             mgmt_box,
             text="🗑️ Delete",
             width=70,
@@ -210,9 +195,9 @@ class LayoutEditorWindow(ctk.CTkToplevel):
             hover_color="#732525",
             font=ctk.CTkFont(size=11),
             command=self._confirm_delete_template
-        ).pack(side="left", padx=2)
+        )
 
-        ctk.CTkButton(
+        self.reset_btn = ctk.CTkButton(
             mgmt_box,
             text="🔄 Reset",
             width=65,
@@ -220,7 +205,8 @@ class LayoutEditorWindow(ctk.CTkToplevel):
             hover_color="#382e20",
             font=ctk.CTkFont(size=11),
             command=self._show_reset_dialog
-        ).pack(side="left", padx=2)
+        )
+        self.reset_btn.pack(side="left", padx=2)
 
         # Zoom controls
         zoom_frame = ctk.CTkFrame(top_bar, fg_color="transparent")
@@ -449,25 +435,28 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         global_layout = self.global_layouts.get(self.current_layout_key, {})
         is_mod = is_layout_modified(active_layout, global_layout)
         is_bundled = active_layout.get("bundled", self.current_layout_key in BUILTIN_SHIPPED_LAYOUTS)
+        status = LayoutStatus.determine(is_bundled, is_mod)
 
-        if is_mod:
-            self.scope_badge.configure(
-                text="📌 Modified",
-                fg_color="#8f4a2d",
-                text_color="#ffffff"
-            )
-        elif is_bundled:
-            self.scope_badge.configure(
-                text="🔒 Bundled Template",
-                fg_color="#3d342a",
-                text_color="#c2b6a4"
-            )
+        badge_fg = {
+            LayoutStatus.MODIFIED: "#8f4a2d",
+            LayoutStatus.BUNDLED: "#3d342a",
+            LayoutStatus.CUSTOM: "#2b3e50"
+        }
+        self.scope_badge.configure(
+            text=status.badge_text,
+            fg_color=badge_fg.get(status, "#3d342a"),
+            text_color="#ffffff" if status == LayoutStatus.MODIFIED else "#c2b6a4"
+        )
+
+        # Do not show Delete icon/button on bundled templates; only show on custom templates
+        if is_bundled:
+            self.delete_btn.pack_forget()
+            if not self.reset_btn.winfo_ismapped():
+                self.reset_btn.pack(side="left", padx=2)
         else:
-            self.scope_badge.configure(
-                text="🌐 Custom Template",
-                fg_color="#2b3e50",
-                text_color="#c2b6a4"
-            )
+            self.reset_btn.pack_forget()
+            if not self.delete_btn.winfo_ismapped():
+                self.delete_btn.pack(side="left", padx=2)
 
     def _load_layout_into_editor(self, layout_key):
         self.current_layout_key = layout_key

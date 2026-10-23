@@ -11,6 +11,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageFilter
 import numpy as np
 
 from .models import NewspaperEdition, Story, StoryPriority
+from .template_package import load_all_installed_templates
 
 
 class BroadsheetFontManager:
@@ -224,15 +225,8 @@ class NativeBroadsheetRenderer:
         return self.render_slot_layout(edition, template_id=template_id, scale=scale)
 
     def render_slot_layout(self, edition: NewspaperEdition, template_id: str = "layout_1", scale: float = 1.0) -> Image.Image:
-        """Renders content dynamically into any layout defined in layout_definitions.json."""
-        defs_path = os.path.join(self.base_dir, "assets", "templates", "layout_definitions.json")
-        all_layouts = {}
-        if os.path.exists(defs_path):
-            try:
-                with open(defs_path, "r", encoding="utf-8") as f:
-                    all_layouts = json.load(f)
-            except Exception:
-                pass
+        """Renders content dynamically into any installed .prophettemplate layout."""
+        all_layouts = load_all_installed_templates(base_dir=self.base_dir)
 
         # Normalize template id
         if not template_id or template_id in ["default", "broadsheet_single_page"]:
