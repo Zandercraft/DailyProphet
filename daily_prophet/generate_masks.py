@@ -1,325 +1,234 @@
-"""Defines layout slot schemas and generates visual wireframe masks
-exclusively for the 9 authentic Vintage Wizarding Newspaper Layouts.
+"""Defines layout slot schemas, persistence, and visual wireframe mask generation.
+Exclusively supports authentic Vintage Wizarding Newspaper Layouts.
 """
 import os
+import shutil
 import json
+from typing import Dict, Any, Optional
 from PIL import Image, ImageDraw, ImageFont
 
-def build_all_layouts():
-    os.makedirs('assets/templates/masks', exist_ok=True)
+from .template_package import (
+    load_all_installed_templates,
+    save_installed_template,
+    restore_template_from_shipped_or_backup,
+    delete_installed_template,
+    INSTALLED_TEMPLATES_DIR,
+    SHIPPED_TEMPLATES_DIR
+)
 
-    layouts = {
-        'layout_1': {
-            'page_file': 'assets/templates/pages/additional_layout_1.png',
-            'width': 1122,
-            'height': 1402,
-            'label': 'Layout 1: Broadsheet Lead & Gazette',
-            'slots': [
-                {'id': 'ear_left', 'type': 'ear_box', 'rect': [35, 35, 175, 80], 'label': 'Left Ear (Day/Date)'},
-                {'id': 'masthead_title', 'type': 'title', 'rect': [220, 30, 680, 85], 'label': 'Masthead Title'},
-                {'id': 'ear_right', 'type': 'ear_box', 'rect': [910, 35, 175, 80], 'label': 'Right Ear (Price/Weather)'},
-                {'id': 'slogan', 'type': 'slogan', 'rect': [220, 120, 680, 30], 'label': 'Tagline Slogan'},
-                {'id': 'ticker_bar', 'type': 'ticker', 'rect': [35, 160, 1050, 40], 'label': 'Topic Ticker Bar'},
-                {'id': 'lead_headline', 'type': 'headline', 'rect': [35, 224, 1050, 52], 'label': 'Lead Headline Banner'},
-                {'id': 'side_col_left', 'type': 'column', 'rect': [35, 285, 240, 410], 'label': 'Left News Column'},
-                {'id': 'lead_photo', 'type': 'photo', 'rect': [290, 285, 455, 275], 'label': 'Hero Photo / Frame'},
-                {'id': 'lead_body', 'type': 'body', 'rect': [290, 570, 455, 125], 'label': 'Hero Lead Body'},
-                {'id': 'side_col_right', 'type': 'column', 'rect': [760, 285, 325, 410], 'label': 'Right Feature Sidebar'},
-                {'id': 'mid_col_1', 'type': 'column', 'rect': [35, 730, 340, 335], 'label': 'Mid Section Col 1'},
-                {'id': 'mid_photo', 'type': 'photo', 'rect': [395, 740, 345, 220], 'label': 'Mid Section Photo'},
-                {'id': 'mid_col_2', 'type': 'column', 'rect': [395, 965, 345, 100], 'label': 'Mid Section Col 2 Body'},
-                {'id': 'mid_col_3', 'type': 'column', 'rect': [760, 730, 325, 335], 'label': 'Mid Section Col 3'},
-                {'id': 'bulletin_box_1', 'type': 'lore', 'rect': [35, 1090, 340, 275], 'label': 'Classified / Lore Box 1'},
-                {'id': 'bulletin_box_2', 'type': 'lore', 'rect': [395, 1090, 345, 275], 'label': 'Classified / Lore Box 2'},
-                {'id': 'bulletin_box_3', 'type': 'lore', 'rect': [760, 1090, 325, 275], 'label': 'Classified / Lore Box 3'},
-                {'id': 'footer', 'type': 'footer', 'rect': [35, 1370, 1050, 25], 'label': 'Bottom Footer'}
-            ]
-        },
-        'layout_2': {
-            'page_file': 'assets/templates/pages/additional_layout_2.png',
-            'width': 1122,
-            'height': 1402,
-            'label': 'Layout 2: Double-Feature Spread',
-            'slots': [
-                {'id': 'masthead_banner', 'type': 'title', 'rect': [30, 25, 1060, 145], 'label': 'Masthead Title Banner'},
-                {'id': 'ticker_bar', 'type': 'ticker', 'rect': [30, 175, 1060, 48], 'label': 'Topic Ticker Bar'},
-                {'id': 'top_headline', 'type': 'headline', 'rect': [30, 230, 690, 80], 'label': 'Top Feature Headline'},
-                {'id': 'top_body_side', 'type': 'body', 'rect': [30, 315, 210, 395], 'label': 'Feature Body (Side)'},
-                {'id': 'top_hero_photo', 'type': 'photo', 'rect': [245, 320, 475, 390], 'label': 'Feature Hero Photo'},
-                {'id': 'right_sidebar_head', 'type': 'headline', 'rect': [735, 230, 355, 75], 'label': 'Sidebar Headline'},
-                {'id': 'right_sidebar_photo', 'type': 'photo', 'rect': [735, 310, 355, 220], 'label': 'Sidebar Photo'},
-                {'id': 'right_sidebar_body', 'type': 'body', 'rect': [735, 540, 355, 170], 'label': 'Sidebar Body'},
-                {'id': 'mid_banner', 'type': 'banner', 'rect': [30, 719, 1060, 58], 'label': 'Mid-Page Special Banner'},
-                {'id': 'mid_col_1', 'type': 'column', 'rect': [30, 785, 280, 290], 'label': 'Lower Story Column 1'},
-                {'id': 'mid_col_2', 'type': 'column', 'rect': [325, 785, 395, 290], 'label': 'Lower Story Column 2'},
-                {'id': 'mid_col_3', 'type': 'column', 'rect': [735, 785, 355, 290], 'label': 'Lower Story Column 3'},
-                {'id': 'bulletin_left', 'type': 'lore', 'rect': [30, 1085, 330, 260], 'label': 'Notice Bulletin Left'},
-                {'id': 'bulletin_mid', 'type': 'lore', 'rect': [375, 1085, 310, 260], 'label': 'Notice Bulletin Mid'},
-                {'id': 'bulletin_right', 'type': 'lore', 'rect': [700, 1085, 390, 260], 'label': 'Notice Bulletin Right'},
-                {'id': 'footer', 'type': 'footer', 'rect': [30, 1353, 1060, 35], 'label': 'Bottom Broadsheet Footer'}
-            ]
-        },
-        'layout_3': {
-            'page_file': 'assets/templates/pages/additional_layout_3.png',
-            'width': 1122,
-            'height': 1402,
-            'label': 'Layout 3: Big Center Headline',
-            'slots': [
-                {'id': 'ear_left', 'type': 'ear_box', 'rect': [30, 30, 160, 80], 'label': 'Left Ear'},
-                {'id': 'masthead_title', 'type': 'title', 'rect': [200, 25, 720, 85], 'label': 'Masthead Title'},
-                {'id': 'ear_right', 'type': 'ear_box', 'rect': [930, 30, 160, 80], 'label': 'Right Ear'},
-                {'id': 'ticker_bar', 'type': 'ticker', 'rect': [30, 140, 1060, 50], 'label': 'Topic Ticker Bar'},
-                {'id': 'main_headline', 'type': 'headline', 'rect': [30, 195, 1060, 55], 'label': 'Main Issue Headline'},
-                {'id': 'side_col_left', 'type': 'column', 'rect': [30, 255, 255, 250], 'label': 'Left News Column'},
-                {'id': 'side_photo_left', 'type': 'photo', 'rect': [30, 515, 255, 230], 'label': 'Left Column Photo'},
-                {'id': 'center_subhead', 'type': 'subheadline', 'rect': [300, 255, 495, 95], 'label': 'Center Hero Headline'},
-                {'id': 'center_photo', 'type': 'photo', 'rect': [300, 365, 490, 380], 'label': 'Center Hero Portrait Photo'},
-                {'id': 'side_col_right', 'type': 'column', 'rect': [815, 255, 275, 280], 'label': 'Right News Column'},
-                {'id': 'side_quote_right', 'type': 'quote', 'rect': [815, 545, 275, 200], 'label': 'Right Quote Callout Box'},
-                {'id': 'mid_ribbon', 'type': 'banner', 'rect': [30, 755, 1060, 60], 'label': 'Center Ribbon Banner'},
-                {'id': 'lower_lore_1', 'type': 'lore', 'rect': [30, 830, 255, 530], 'label': 'Lower Lore Box 1'},
-                {'id': 'lower_center_story', 'type': 'column', 'rect': [300, 830, 495, 350], 'label': 'Lower Center 2-Col Story'},
-                {'id': 'lower_center_callout', 'type': 'quote', 'rect': [300, 1190, 495, 170], 'label': 'Lower Quote Callout'},
-                {'id': 'lower_lore_3', 'type': 'lore', 'rect': [815, 830, 275, 530], 'label': 'Lower Lore Box 3'},
-                {'id': 'footer', 'type': 'footer', 'rect': [30, 1370, 1060, 25], 'label': 'Bottom Footer'}
-            ]
-        },
-        'layout_4': {
-            'page_file': 'assets/templates/pages/additional_layout_4.png',
-            'width': 1122,
-            'height': 1402,
-            'label': 'Layout 4: Breaking News Quad-Spread',
-            'slots': [
-                {'id': 'masthead_title', 'type': 'title', 'rect': [30, 25, 1060, 120], 'label': 'Masthead Title Banner'},
-                {'id': 'masthead_ears', 'type': 'banner', 'rect': [30, 150, 1060, 45], 'label': 'Date & Price Ribbon'},
-                {'id': 'ticker_ribbon', 'type': 'ticker', 'rect': [30, 200, 1060, 45], 'label': 'Topic Ticker Bar'},
-                {'id': 'breaking_headline', 'type': 'headline', 'rect': [30, 250, 1060, 70], 'label': 'Breaking Headline Banner'},
-                {'id': 'left_story_col', 'type': 'column', 'rect': [30, 325, 280, 480], 'label': 'Left News Column'},
-                {'id': 'center_hero_photo', 'type': 'photo', 'rect': [325, 335, 435, 270], 'label': 'Center Lead Photo'},
-                {'id': 'center_hero_body', 'type': 'body', 'rect': [325, 615, 435, 190], 'label': 'Center Lead Body'},
-                {'id': 'right_card_top', 'type': 'lore', 'rect': [775, 335, 315, 120], 'label': 'Right Feature Card 1'},
-                {'id': 'right_card_mid', 'type': 'lore', 'rect': [775, 465, 315, 140], 'label': 'Right Feature Card 2'},
-                {'id': 'right_card_bot', 'type': 'lore', 'rect': [775, 615, 315, 190], 'label': 'Right Feature Card 3'},
-                {'id': 'sub_story_left', 'type': 'column', 'rect': [30, 820, 280, 175], 'label': 'Sub-Story Left'},
-                {'id': 'quote_box_mid', 'type': 'quote', 'rect': [325, 820, 435, 175], 'label': 'Quote Callout Center'},
-                {'id': 'sub_story_right', 'type': 'column', 'rect': [775, 820, 315, 175], 'label': 'Sub-Story Right'},
-                {'id': 'classified_col_1', 'type': 'column', 'rect': [30, 1010, 280, 350], 'label': 'Classifieds Col 1'},
-                {'id': 'classified_col_2', 'type': 'column', 'rect': [325, 1010, 435, 350], 'label': 'Classifieds Col 2'},
-                {'id': 'classified_ad_box', 'type': 'photo', 'rect': [775, 1010, 315, 350], 'label': 'Classified Ad / Frame'},
-                {'id': 'footer', 'type': 'footer', 'rect': [30, 1370, 1060, 25], 'label': 'Bottom Footer'}
-            ]
-        },
-        'layout_5': {
-            'page_file': 'assets/templates/pages/additional_layout_5.png',
-            'width': 1055,
-            'height': 1491,
-            'label': 'Layout 5: Broadsheet Classic Double-Lead',
-            'slots': [
-                {'id': 'ear_left', 'type': 'ear_box', 'rect': [30, 25, 150, 90], 'label': 'Left Ear'},
-                {'id': 'masthead_title', 'type': 'title', 'rect': [195, 25, 665, 90], 'label': 'Masthead Title'},
-                {'id': 'ear_right', 'type': 'ear_box', 'rect': [875, 25, 150, 90], 'label': 'Right Ear'},
-                {'id': 'ticker_bar', 'type': 'ticker', 'rect': [30, 125, 995, 80], 'label': 'Topic Ticker Bar'},
-                {'id': 'top_feature_headline', 'type': 'headline', 'rect': [30, 211, 995, 125], 'label': 'Top Feature Banner'},
-                {'id': 'lead_photo', 'type': 'photo', 'rect': [30, 350, 260, 305], 'label': 'Lead Story Photo'},
-                {'id': 'lead_body', 'type': 'body', 'rect': [305, 350, 440, 305], 'label': 'Lead Story Body'},
-                {'id': 'right_column_photo', 'type': 'photo', 'rect': [760, 350, 265, 150], 'label': 'Right Story Photo'},
-                {'id': 'right_column_body', 'type': 'body', 'rect': [760, 510, 265, 145], 'label': 'Right Story Body'},
-                {'id': 'mid_divider', 'type': 'banner', 'rect': [30, 663, 995, 25], 'label': 'Middle Section Divider'},
-                {'id': 'lower_col_1', 'type': 'column', 'rect': [30, 695, 265, 670], 'label': 'Lower Column 1'},
-                {'id': 'lower_center_photo', 'type': 'photo', 'rect': [310, 700, 435, 280], 'label': 'Lower Hero Photo'},
-                {'id': 'lower_center_body', 'type': 'body', 'rect': [310, 990, 435, 375], 'label': 'Lower Hero Body'},
-                {'id': 'lower_col_3', 'type': 'column', 'rect': [760, 695, 265, 670], 'label': 'Lower Column 3'},
-                {'id': 'footer_lore_strip', 'type': 'lore', 'rect': [30, 1370, 995, 55], 'label': 'Wisdom Lore Strip'},
-                {'id': 'footer', 'type': 'footer', 'rect': [30, 1430, 995, 30], 'label': 'Bottom Footer'}
-            ]
-        },
-        'layout_6': {
-            'page_file': 'assets/templates/pages/additional_layout_6.png',
-            'width': 1055,
-            'height': 1491,
-            'label': 'Layout 6: Investigation & Wanted Sidebar',
-            'slots': [
-                {'id': 'ear_left', 'type': 'ear_box', 'rect': [25, 25, 155, 90], 'label': 'Left Ear'},
-                {'id': 'masthead_title', 'type': 'title', 'rect': [195, 25, 665, 90], 'label': 'Masthead Title'},
-                {'id': 'ear_right', 'type': 'ear_box', 'rect': [875, 25, 155, 90], 'label': 'Right Ear'},
-                {'id': 'ticker_bar', 'type': 'ticker', 'rect': [25, 125, 1005, 95], 'label': 'Topic Ticker Bar'},
-                {'id': 'headline_banner', 'type': 'headline', 'rect': [25, 228, 1005, 30], 'label': 'Top Issue Banner'},
-                {'id': 'story_1_headline', 'type': 'headline', 'rect': [25, 265, 660, 50], 'label': 'Main Story Headline'},
-                {'id': 'story_1_photo', 'type': 'photo', 'rect': [25, 325, 320, 240], 'label': 'Main Story Photo'},
-                {'id': 'story_1_side_body', 'type': 'body', 'rect': [360, 325, 325, 240], 'label': 'Main Story Body (Side)'},
-                {'id': 'story_1_full_body', 'type': 'body', 'rect': [25, 575, 660, 240], 'label': 'Main Story Body (Full)'},
-                {'id': 'story_2_headline', 'type': 'headline', 'rect': [25, 830, 660, 50], 'label': 'Secondary Story Headline'},
-                {'id': 'story_2_col1', 'type': 'column', 'rect': [25, 890, 320, 550], 'label': 'Story 2 Column 1'},
-                {'id': 'story_2_col2', 'type': 'column', 'rect': [365, 890, 320, 550], 'label': 'Story 2 Column 2'},
-                {'id': 'sidebar_card_top', 'type': 'headline', 'rect': [700, 265, 330, 80], 'label': 'Sidebar Header'},
-                {'id': 'sidebar_wanted_photo', 'type': 'photo', 'rect': [700, 355, 330, 500], 'label': 'Wanted / Hero Portrait'},
-                {'id': 'sidebar_wanted_text', 'type': 'body', 'rect': [700, 865, 330, 210], 'label': 'Wanted Notice Text'},
-                {'id': 'sidebar_bulletin_box', 'type': 'lore', 'rect': [700, 1085, 330, 355], 'label': 'Sidebar Bulletin Box'},
-                {'id': 'footer', 'type': 'footer', 'rect': [25, 1450, 1005, 30], 'label': 'Bottom Footer'}
-            ]
-        },
-        'layout_7': {
-            'page_file': 'assets/templates/pages/additional_layout_7.png',
-            'width': 1055,
-            'height': 1491,
-            'label': 'Layout 7: Tabloid Spread & Central Feature',
-            'slots': [
-                {'id': 'ear_left', 'type': 'ear_box', 'rect': [30, 25, 155, 90], 'label': 'Left Ear'},
-                {'id': 'masthead_title', 'type': 'title', 'rect': [200, 25, 655, 90], 'label': 'Masthead Title'},
-                {'id': 'ear_right', 'type': 'ear_box', 'rect': [870, 25, 155, 90], 'label': 'Right Ear'},
-                {'id': 'ticker_bar', 'type': 'ticker', 'rect': [30, 125, 995, 105], 'label': 'Topic Ticker Bar'},
-                {'id': 'banner_headline', 'type': 'headline', 'rect': [30, 235, 995, 105], 'label': 'Main Banner Headline'},
-                {'id': 'upper_left_col', 'type': 'column', 'rect': [30, 345, 210, 235], 'label': 'Upper Left Column'},
-                {'id': 'upper_center_photo', 'type': 'photo', 'rect': [250, 355, 530, 225], 'label': 'Upper Feature Photo'},
-                {'id': 'upper_right_col', 'type': 'column', 'rect': [790, 345, 235, 235], 'label': 'Upper Right Column'},
-                {'id': 'mid_col_1', 'type': 'column', 'rect': [30, 585, 210, 510], 'label': 'Middle Column 1'},
-                {'id': 'mid_lead_headline', 'type': 'headline', 'rect': [250, 585, 530, 75], 'label': 'Center Story Headline'},
-                {'id': 'mid_lead_photo', 'type': 'photo', 'rect': [250, 670, 530, 420], 'label': 'Center Story Hero Photo'},
-                {'id': 'mid_col_3', 'type': 'column', 'rect': [790, 585, 235, 510], 'label': 'Middle Column 3'},
-                {'id': 'bulletin_box_1', 'type': 'lore', 'rect': [30, 1105, 340, 285], 'label': 'Classified Box 1'},
-                {'id': 'bulletin_box_2', 'type': 'lore', 'rect': [385, 1105, 340, 285], 'label': 'Classified Box 2'},
-                {'id': 'bulletin_box_3', 'type': 'lore', 'rect': [740, 1105, 285, 285], 'label': 'Classified Box 3'},
-                {'id': 'footer', 'type': 'footer', 'rect': [30, 1400, 995, 50], 'label': 'Bottom Footer'}
-            ]
-        },
-        'layout_8': {
-            'page_file': 'assets/templates/pages/additional_layout_8.png',
-            'width': 1055,
-            'height': 1491,
-            'label': 'Layout 8: Hero Portrait & Wanted Poster',
-            'slots': [
-                {'id': 'ear_left', 'type': 'ear_box', 'rect': [30, 25, 160, 90], 'label': 'Left Ear'},
-                {'id': 'masthead_title', 'type': 'title', 'rect': [205, 25, 645, 90], 'label': 'Masthead Title'},
-                {'id': 'ear_right', 'type': 'ear_box', 'rect': [865, 25, 160, 90], 'label': 'Right Ear'},
-                {'id': 'ticker_bar', 'type': 'ticker', 'rect': [30, 125, 995, 100], 'label': 'Topic Ticker Bar'},
-                {'id': 'left_article_1', 'type': 'column', 'rect': [25, 230, 205, 350], 'label': 'Left Column Story 1'},
-                {'id': 'left_article_2', 'type': 'column', 'rect': [25, 590, 205, 340], 'label': 'Left Column Story 2'},
-                {'id': 'left_article_3', 'type': 'column', 'rect': [25, 940, 205, 500], 'label': 'Left Column Story 3'},
-                {'id': 'hero_wanted_headline', 'type': 'headline', 'rect': [240, 235, 595, 95], 'label': 'Giant Hero Headline'},
-                {'id': 'hero_portrait_photo', 'type': 'photo', 'rect': [240, 340, 595, 560], 'label': 'Giant Hero Portrait Photo'},
-                {'id': 'hero_story_body', 'type': 'body', 'rect': [240, 915, 595, 535], 'label': 'Giant Hero Story Body'},
-                {'id': 'right_article_1', 'type': 'column', 'rect': [845, 230, 185, 350], 'label': 'Right Column Story 1'},
-                {'id': 'right_article_2', 'type': 'column', 'rect': [845, 590, 185, 340], 'label': 'Right Column Story 2'},
-                {'id': 'right_article_3', 'type': 'column', 'rect': [845, 940, 185, 500], 'label': 'Right Column Story 3'},
-                {'id': 'footer', 'type': 'footer', 'rect': [25, 1455, 1005, 30], 'label': 'Bottom Footer'}
-            ]
-        },
-        'layout_9': {
-            'page_file': 'assets/templates/pages/additional_layout_9.png',
-            'width': 1055,
-            'height': 1491,
-            'label': 'Layout 9: Multi-Column Dispatch Gazette',
-            'slots': [
-                {'id': 'ear_left', 'type': 'ear_box', 'rect': [30, 25, 160, 110], 'label': 'Left Ear'},
-                {'id': 'masthead_title', 'type': 'title', 'rect': [205, 25, 645, 110], 'label': 'Masthead Title'},
-                {'id': 'ear_right', 'type': 'ear_box', 'rect': [865, 25, 160, 110], 'label': 'Right Ear'},
-                {'id': 'ticker_bar', 'type': 'ticker', 'rect': [30, 145, 995, 125], 'label': 'Topic Ticker Bar'},
-                {'id': 'upper_col_left', 'type': 'column', 'rect': [30, 280, 260, 405], 'label': 'Upper News Left'},
-                {'id': 'upper_lead_photo', 'type': 'photo', 'rect': [305, 280, 435, 275], 'label': 'Upper Lead Photo'},
-                {'id': 'upper_lead_body', 'type': 'body', 'rect': [305, 565, 435, 120], 'label': 'Upper Lead Body'},
-                {'id': 'upper_col_right', 'type': 'column', 'rect': [755, 280, 270, 405], 'label': 'Upper News Right'},
-                {'id': 'mid_divider', 'type': 'banner', 'rect': [30, 690, 995, 15], 'label': 'Mid-Page Divider'},
-                {'id': 'lower_col_left', 'type': 'column', 'rect': [30, 710, 260, 735], 'label': 'Lower News Left'},
-                {'id': 'lower_subcol_1', 'type': 'column', 'rect': [305, 710, 210, 500], 'label': 'Lower Center Subcol 1'},
-                {'id': 'lower_subcol_2', 'type': 'column', 'rect': [525, 710, 215, 500], 'label': 'Lower Center Subcol 2'},
-                {'id': 'lower_quote_center', 'type': 'quote', 'rect': [305, 1220, 435, 225], 'label': 'Center Quote Callout'},
-                {'id': 'classified_card_1', 'type': 'lore', 'rect': [755, 710, 270, 225], 'label': 'Classified Card 1'},
-                {'id': 'classified_card_2', 'type': 'lore', 'rect': [755, 945, 270, 225], 'label': 'Classified Card 2'},
-                {'id': 'classified_card_3', 'type': 'lore', 'rect': [755, 1180, 270, 265], 'label': 'Classified Card 3'},
-                {'id': 'footer', 'type': 'footer', 'rect': [30, 1455, 995, 30], 'label': 'Bottom Footer'}
-            ]
-        }
-    }
+SHIPPED_DEFAULTS_FILE = os.path.join(os.path.dirname(__file__), "default_templates", "layout_definitions.json")
+GLOBAL_LAYOUTS_FILE = os.path.join("assets", "templates", "layout_definitions.json")
+GLOBAL_BACKUP_FILE = os.path.join("assets", "templates", "layout_definitions.json.bak")
+MASKS_DIR = os.path.join("assets", "templates", "masks")
 
-    # Also keep additional_layout_1..9 aliases for backwards compatibility
+SLOT_COLORS = {
+    'title': (74, 35, 90, 160),         # Royal Purple
+    'banner': (40, 40, 60, 140),       # Dark Slate
+    'ear_box': (100, 40, 40, 140),     # Dark Maroon
+    'slogan': (50, 50, 50, 120),       # Charcoal
+    'ticker': (90, 70, 30, 130),       # Bronze
+    'headline': (139, 30, 30, 170),     # Crimson Red
+    'subheadline': (160, 60, 40, 130),  # Amber
+    'photo': (30, 86, 49, 180),        # Forest Green
+    'body': (27, 54, 93, 140),         # Ink Navy
+    'column': (27, 54, 93, 130),       # Column Blue
+    'quote': (153, 101, 21, 160),      # Amber Gold
+    'lore': (92, 53, 102, 140),        # Plum
+    'divider': (80, 80, 80, 140),      # Divider
+    'footer': (40, 40, 40, 150)        # Footer
+}
+
+OUTLINE_COLORS = {
+    'title': (120, 60, 150),
+    'banner': (80, 80, 120),
+    'ear_box': (160, 60, 60),
+    'slogan': (100, 100, 100),
+    'ticker': (140, 110, 50),
+    'headline': (190, 40, 40),
+    'subheadline': (210, 90, 60),
+    'photo': (40, 140, 80),
+    'body': (45, 90, 155),
+    'column': (45, 90, 155),
+    'quote': (210, 145, 30),
+    'lore': (140, 80, 160),
+    'divider': (120, 120, 120),
+    'footer': (90, 90, 90)
+}
+
+
+def load_layout_definitions(defs_path: Optional[str] = None, base_dir: str = ".") -> Dict[str, Any]:
+    """Loads layout definitions from individual .prophettemplate files or legacy fallback."""
+    # First priority: Load individual .prophettemplate files from installed / shipped directories
+    pkg_templates = load_all_installed_templates(base_dir=base_dir)
+    if pkg_templates:
+        # Also ensure layout_definitions.json is synchronized for compatibility
+        target_path = defs_path or os.path.join(base_dir, GLOBAL_LAYOUTS_FILE)
+        try:
+            os.makedirs(os.path.dirname(os.path.abspath(target_path)), exist_ok=True)
+            with open(target_path, "w", encoding="utf-8") as f:
+                json.dump(pkg_templates, f, indent=2, ensure_ascii=False)
+        except Exception:
+            pass
+        return pkg_templates
+
+    target_path = defs_path or os.path.join(base_dir, GLOBAL_LAYOUTS_FILE)
+
+    if os.path.isfile(target_path):
+        try:
+            with open(target_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Warning: Failed to load {target_path} ({e}). Falling back to shipped defaults.")
+
+    # Try shipped defaults bundled in source code
+    if os.path.isfile(SHIPPED_DEFAULTS_FILE):
+        try:
+            with open(SHIPPED_DEFAULTS_FILE, "r", encoding="utf-8") as f:
+                defaults = json.load(f)
+            os.makedirs(os.path.dirname(os.path.abspath(target_path)), exist_ok=True)
+            with open(target_path, "w", encoding="utf-8") as f:
+                json.dump(defaults, f, indent=2)
+            return defaults
+        except Exception as e:
+            print(f"Error loading shipped defaults from {SHIPPED_DEFAULTS_FILE}: {e}")
+
+    return {}
+
+
+def save_global_layout_definitions(layouts: Dict[str, Any], defs_path: Optional[str] = None, base_dir: str = ".") -> bool:
+    """Saves layout definitions to individual .prophettemplate files (one layout per file).
+    Creates a .bak backup file for each modified template upon first edit.
+    """
+    target_path = defs_path or os.path.join(base_dir, GLOBAL_LAYOUTS_FILE)
+    backup_path = target_path + ".bak"
+
+    os.makedirs(os.path.dirname(os.path.abspath(target_path)), exist_ok=True)
+
+    # First-time backup of composite json:
+    if os.path.isfile(target_path) and not os.path.isfile(backup_path):
+        try:
+            shutil.copy2(target_path, backup_path)
+            print(f"Created first-modification template backup: {backup_path}")
+        except Exception as e:
+            print(f"Warning: Could not create template backup: {e}")
+
+    # Save each individual template to its own .prophettemplate file
+    for layout_key, layout_data in layouts.items():
+        if layout_key.startswith("additional_"):
+            continue
+        try:
+            save_installed_template(layout_key, layout_data, base_dir=base_dir)
+        except Exception as e:
+            print(f"Error packaging {layout_key}.prophettemplate: {e}")
+
+    try:
+        with open(target_path, "w", encoding="utf-8") as f:
+            json.dump(layouts, f, indent=2, ensure_ascii=False)
+        return True
+    except Exception as e:
+        print(f"Error saving global layouts to {target_path}: {e}")
+        return False
+
+
+def restore_factory_templates(defs_path: Optional[str] = None, base_dir: str = ".") -> Dict[str, Any]:
+    """Restores global template definitions from bundled source code .prophettemplate files."""
     for i in range(1, 10):
-        layouts[f"additional_layout_{i}"] = dict(layouts[f"layout_{i}"])
+        restore_template_from_shipped_or_backup(f"layout_{i}", base_dir=base_dir)
 
-    with open('assets/templates/layout_definitions.json', 'w') as f:
-        json.dump(layouts, f, indent=2)
+    return load_all_installed_templates(base_dir=base_dir)
 
-    slot_colors = {
-        'title': (74, 35, 90, 160),         # Royal Purple
-        'banner': (40, 40, 60, 140),       # Dark Slate
-        'ear_box': (100, 40, 40, 140),     # Dark Maroon
-        'slogan': (50, 50, 50, 120),       # Charcoal
-        'ticker': (90, 70, 30, 130),       # Bronze
-        'headline': (139, 30, 30, 170),     # Crimson Red
-        'subheadline': (160, 60, 40, 130),  # Amber
-        'photo': (30, 86, 49, 180),        # Forest Green
-        'body': (27, 54, 93, 140),         # Ink Navy
-        'column': (27, 54, 93, 130),       # Column Blue
-        'quote': (153, 101, 21, 160),      # Amber Gold
-        'lore': (92, 53, 102, 140),        # Plum
-        'divider': (80, 80, 80, 140),      # Divider
-        'footer': (40, 40, 40, 150)        # Footer
-    }
 
-    outline_colors = {
-        'title': (120, 60, 150),
-        'banner': (80, 80, 120),
-        'ear_box': (160, 60, 60),
-        'slogan': (100, 100, 100),
-        'ticker': (140, 110, 50),
-        'headline': (190, 40, 40),
-        'subheadline': (210, 90, 60),
-        'photo': (40, 140, 80),
-        'body': (45, 90, 155),
-        'column': (45, 90, 155),
-        'quote': (210, 145, 30),
-        'lore': (140, 80, 160),
-        'divider': (120, 120, 120),
-        'footer': (90, 90, 90)
-    }
+def generate_wireframe_mask_for_layout(
+    layout_key: str,
+    layout_data: Dict[str, Any],
+    masks_dir: Optional[str] = None,
+    base_dir: str = "."
+) -> Optional[str]:
+    """Generates a high-contrast wireframe mask with slot labels for a specific layout."""
+    masks_target_dir = masks_dir or os.path.join(base_dir, MASKS_DIR)
+    os.makedirs(masks_target_dir, exist_ok=True)
+
+    page_rel = layout_data.get('page_file', '')
+    page_file = os.path.join(base_dir, page_rel) if not os.path.isabs(page_rel) else page_rel
+
+    if not os.path.isfile(page_file):
+        # Try alternate path
+        page_file = os.path.abspath(page_rel)
+
+    if not os.path.isfile(page_file):
+        print(f"Skipping wireframe for {layout_key}: Page image '{page_rel}' not found.")
+        return None
+
+    try:
+        base_img = Image.open(page_file).convert('RGBA')
+    except Exception as e:
+        print(f"Failed to open page image for {layout_key}: {e}")
+        return None
+
+    overlay = Image.new('RGBA', base_img.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
 
     font_path = r"C:\Windows\Fonts\arialbd.ttf"
     if not os.path.isfile(font_path):
         font_path = r"C:\Windows\Fonts\arial.ttf"
 
+    font_size = max(9, int(base_img.width * 0.016))
+    try:
+        label_font = ImageFont.truetype(font_path, font_size)
+    except Exception:
+        label_font = ImageFont.load_default()
+
+    slots = layout_data.get('slots', [])
+    for slot in slots:
+        rx, ry, rw, rh = slot.get('rect', [0, 0, 100, 100])
+        stype = slot.get('type', 'body')
+        slabel = slot.get('label', slot.get('id', 'slot'))
+
+        fill_c = SLOT_COLORS.get(stype, (40, 40, 40, 120))
+        line_c = OUTLINE_COLORS.get(stype, (100, 100, 100))
+
+        draw.rectangle([rx, ry, rx + rw, ry + rh], fill=fill_c, outline=line_c, width=2)
+
+        tag_text = f"[{stype.upper()}] {slabel}"
+        t_bbox = draw.textbbox((0, 0), tag_text, font=label_font)
+        t_w = t_bbox[2] - t_bbox[0]
+        t_h = t_bbox[3] - t_bbox[1]
+
+        tag_y = min(ry + 3, ry + rh - t_h - 4)
+        draw.rectangle([rx + 2, tag_y - 1, rx + t_w + 6, tag_y + t_h + 3], fill=(20, 20, 20, 220))
+        draw.text((rx + 4, tag_y), tag_text, font=label_font, fill=(255, 255, 255))
+
+    composite = Image.alpha_composite(base_img, overlay).convert('RGB')
+    mask_out = os.path.join(masks_target_dir, f"{layout_key}_wireframe.png")
+    composite.save(mask_out)
+
+    # Save alias mask for compatibility if needed
+    if not layout_key.startswith("additional_"):
+        alias_out = os.path.join(masks_target_dir, f"additional_{layout_key}_wireframe.png")
+        try:
+            composite.save(alias_out)
+        except Exception:
+            pass
+
+    return mask_out
+
+
+def build_all_layouts(defs_path: Optional[str] = None, base_dir: str = "."):
+    """Reads layout definitions from disk and generates wireframe masks without overwriting definitions."""
+    layouts = load_layout_definitions(defs_path=defs_path, base_dir=base_dir)
+    masks_target_dir = os.path.join(base_dir, MASKS_DIR)
+    os.makedirs(masks_target_dir, exist_ok=True)
+
+    generated = 0
     for layout_key, layout_data in layouts.items():
         if layout_key.startswith("additional_layout_"):
-            continue  # Don't generate duplicate masks for aliases
-        page_file = layout_data['page_file']
-        if not os.path.isfile(page_file):
-            print(f"Skipping {layout_key}: file {page_file} not found.")
-            continue
+            continue  # Generated as alias along with primary
+        mask_path = generate_wireframe_mask_for_layout(layout_key, layout_data, masks_dir=masks_target_dir, base_dir=base_dir)
+        if mask_path:
+            generated += 1
 
-        base_img = Image.open(page_file).convert('RGBA')
-        overlay = Image.new('RGBA', base_img.size, (0, 0, 0, 0))
-        draw = ImageDraw.Draw(overlay)
+    print(f"Generated {generated} wireframe masks in {masks_target_dir}")
 
-        font_size = max(9, int(base_img.width * 0.016))
-        try:
-            label_font = ImageFont.truetype(font_path, font_size)
-        except Exception:
-            label_font = ImageFont.load_default()
-
-        for slot in layout_data['slots']:
-            rx, ry, rw, rh = slot['rect']
-            stype = slot.get('type', 'body')
-            slabel = slot.get('label', slot['id'])
-
-            fill_c = slot_colors.get(stype, (40, 40, 40, 120))
-            line_c = outline_colors.get(stype, (100, 100, 100))
-
-            draw.rectangle([rx, ry, rx + rw, ry + rh], fill=fill_c, outline=line_c, width=2)
-
-            tag_text = f"[{stype.upper()}] {slabel}"
-            t_bbox = draw.textbbox((0, 0), tag_text, font=label_font)
-            t_w = t_bbox[2] - t_bbox[0]
-            t_h = t_bbox[3] - t_bbox[1]
-
-            tag_y = min(ry + 3, ry + rh - t_h - 4)
-            draw.rectangle([rx + 2, tag_y - 1, rx + t_w + 6, tag_y + t_h + 3], fill=(20, 20, 20, 220))
-            draw.text((rx + 4, tag_y), tag_text, font=label_font, fill=(255, 255, 255))
-
-        composite = Image.alpha_composite(base_img, overlay).convert('RGB')
-        mask_out = f"assets/templates/masks/{layout_key}_wireframe.png"
-        composite.save(mask_out)
-        # Also save alias mask for additional_layout_X
-        alias_out = f"assets/templates/masks/additional_{layout_key}_wireframe.png"
-        composite.save(alias_out)
-        print(f"Generated wireframe mask: {mask_out}")
 
 if __name__ == '__main__':
     build_all_layouts()

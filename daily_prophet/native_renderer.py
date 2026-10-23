@@ -238,10 +238,18 @@ class NativeBroadsheetRenderer:
         if not template_id or template_id in ["default", "broadsheet_single_page"]:
             template_id = "layout_1"
 
-        layout_def = all_layouts.get(template_id)
-        if not layout_def and template_id.startswith("additional_"):
-            alt_id = template_id.replace("additional_", "")
-            layout_def = all_layouts.get(alt_id)
+        # Check project-level customized layout slots first
+        layout_def = None
+        if hasattr(edition, "custom_layouts") and edition.custom_layouts:
+            layout_def = edition.custom_layouts.get(template_id)
+            if not layout_def and template_id.startswith("additional_"):
+                layout_def = edition.custom_layouts.get(template_id.replace("additional_", ""))
+
+        if not layout_def:
+            layout_def = all_layouts.get(template_id)
+            if not layout_def and template_id.startswith("additional_"):
+                alt_id = template_id.replace("additional_", "")
+                layout_def = all_layouts.get(alt_id)
         if not layout_def:
             layout_def = all_layouts.get("layout_1", {})
 

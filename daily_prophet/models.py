@@ -79,6 +79,7 @@ class NewspaperEdition:
     lore_body_2: str = "The castle's grand staircases move according to an ancient harmonic enchantment placed by Rowena Ravenclaw herself. Exactly one hundred and forty-two flights of stairs connect the towers to the dungeons."
     stories: List[Story] = field(default_factory=list)
     selected_layout: str = "layout_1"
+    custom_layouts: dict = field(default_factory=dict)
 
     def to_dict(self):
         d = asdict(self)
@@ -127,6 +128,16 @@ class NewspaperEdition:
                     media_files_to_pack[arcname] = os.path.abspath(local_path)
                     story_dict[img_key] = arcname
 
+        # Scan custom layouts for custom background page images
+        for lk, ldef in edition_dict.get("custom_layouts", {}).items():
+            if isinstance(ldef, dict):
+                page_file = ldef.get("page_file", "")
+                if page_file and os.path.isfile(page_file):
+                    safe_basename = os.path.basename(page_file)
+                    arcname = f"media/layout_{lk}_{safe_basename}"
+                    media_files_to_pack[arcname] = os.path.abspath(page_file)
+                    ldef["page_file"] = arcname
+
         manifest = {
             "application": "The Daily Prophet",
             "format": "prophet_package",
@@ -166,6 +177,12 @@ class NewspaperEdition:
                     val = story_dict.get(img_key, "")
                     if val and val.startswith("media/"):
                         story_dict[img_key] = os.path.join(extract_dir, val.replace("/", os.sep))
+
+            for lk, ldef in edition_data.get("custom_layouts", {}).items():
+                if isinstance(ldef, dict):
+                    pf = ldef.get("page_file", "")
+                    if pf and pf.startswith("media/"):
+                        ldef["page_file"] = os.path.join(extract_dir, pf.replace("/", os.sep))
 
             edition = cls.from_dict(edition_data)
             return edition

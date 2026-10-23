@@ -5,6 +5,15 @@ Usage:
 """
 import sys
 import os
+
+# Set Windows AppUserModelID so taskbar displays the custom app icon
+if sys.platform == "win32":
+    try:
+        import ctypes
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("ca.zandercraft.dailyprophet.editor")
+    except Exception:
+        pass
+
 import customtkinter as ctk
 
 # Ensure workspace root is in path

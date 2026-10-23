@@ -5,3 +5,5 @@ pywebview ~= 6.2.1
 numpy ~= 2.5.4
 pytesseract~=0.3.13
 opencv-python~=5.0.0.93
+rembg[cpu]~=2.0.86
+onnxruntime~=1.31.0

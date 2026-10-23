@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.png" alt="The Daily Prophet Logo" width="190">
+</p>
+
 # 🗞️ The Daily Prophet - Newspaper Generator
 
 A clean, modern GUI application in Python that generates authentic, fully-templated broadsheet newspaper layouts inspired by **The Daily Prophet** from Harry Potter.

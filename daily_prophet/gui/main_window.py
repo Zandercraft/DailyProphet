@@ -1,4 +1,5 @@
 """Main application window for The Daily Prophet generator."""
+import sys
 import os
 import tkinter as tk
 from tkinter import filedialog, messagebox
@@ -14,6 +15,7 @@ from ..native_renderer import export_native_image, export_native_pdf, NativeBroa
 from .story_dialog import StoryDialog
 from .preview_window import open_webview_window, open_in_browser, save_temp_preview, open_image_preview
 from .layout_editor_window import LayoutEditorWindow
+from ..generate_masks import load_layout_definitions
 
 
 class MainWindow(ctk.CTk):
@@ -27,6 +29,30 @@ class MainWindow(ctk.CTk):
         self.title("The Daily Prophet - Newspaper Generator")
         self.geometry("1180x820")
         self.minsize(1020, 720)
+
+        # Ensure Windows AppUserModelID is registered for taskbar icon
+        if sys.platform == "win32":
+            try:
+                import ctypes
+                ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("ca.zandercraft.dailyprophet.editor")
+            except Exception:
+                pass
+
+        # Set Window and Taskbar Icon
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        self.icon_ico = os.path.join(project_root, "assets", "logo.ico")
+        self.icon_png = os.path.join(project_root, "assets", "logo.png")
+        if os.path.exists(self.icon_ico):
+            try:
+                self.iconbitmap(self.icon_ico)
+            except Exception:
+                pass
+        if os.path.exists(self.icon_png):
+            try:
+                icon_img = tk.PhotoImage(file=self.icon_png)
+                self.iconphoto(True, icon_img)
+            except Exception:
+                pass
 
         # Active edition state
         self.base_dir = os.path.abspath(".")
@@ -44,16 +70,29 @@ class MainWindow(ctk.CTk):
         title_box = ctk.CTkFrame(top_bar, fg_color="transparent")
         title_box.pack(side="left", padx=20, pady=10)
 
+        # Brand Logo in top bar
+        if os.path.exists(self.icon_png):
+            try:
+                logo_pil = Image.open(self.icon_png)
+                self.brand_logo_img = ctk.CTkImage(light_image=logo_pil, dark_image=logo_pil, size=(46, 46))
+                logo_lbl = ctk.CTkLabel(title_box, image=self.brand_logo_img, text="")
+                logo_lbl.pack(side="left", padx=(0, 10))
+            except Exception:
+                pass
+
+        titles_text_box = ctk.CTkFrame(title_box, fg_color="transparent")
+        titles_text_box.pack(side="left", fill="y")
+
         app_title = ctk.CTkLabel(
-            title_box,
-            text="🗞️ THE DAILY PROPHET",
+            titles_text_box,
+            text="THE DAILY PROPHET",
             font=ctk.CTkFont(family="Georgia", size=20, weight="bold"),
             text_color="#f5ede0",
         )
         app_title.pack(anchor="w")
 
         app_sub = ctk.CTkLabel(
-            title_box,
+            titles_text_box,
             text="Wizarding Broadsheet Generator & Layout Publisher",
             font=ctk.CTkFont(family="Georgia", size=11, slant="italic"),
             text_color="#c2b6a4",
@@ -139,22 +178,12 @@ class MainWindow(ctk.CTk):
             text_color="#f5ede0",
         ).pack(side="left", padx=(20, 8), pady=8)
 
-        self.layout_options = [
-            "Layout 1: Broadsheet Lead & Gazette",
-            "Layout 2: Double-Feature Spread",
-            "Layout 3: Big Center Headline",
-            "Layout 4: Breaking News Quad-Spread",
-            "Layout 5: Broadsheet Classic Double-Lead",
-            "Layout 6: Investigation & Wanted Sidebar",
-            "Layout 7: Tabloid Spread & Central Feature",
-            "Layout 8: Hero Portrait & Wanted Poster",
-            "Layout 9: Multi-Column Dispatch Gazette",
-            "📚 Full 9-Page Wizarding Publication (Multi-Page)"
-        ]
+        self.layout_map = {}
+        self.layout_meta = {}
 
         self.template_selector = ctk.CTkOptionMenu(
             layout_bar,
-            values=self.layout_options,
+            values=["Layout 1: Broadsheet Lead & Gazette"],
             width=330,
             fg_color="#3d342a",
             button_color="#54483a",
@@ -162,7 +191,6 @@ class MainWindow(ctk.CTk):
             dropdown_fg_color="#2b231c",
             command=self._on_layout_changed
         )
-        self.template_selector.set(self.layout_options[0])
         self.template_selector.pack(side="left", padx=4, pady=8)
 
         ctk.CTkButton(
@@ -190,6 +218,9 @@ class MainWindow(ctk.CTk):
             text_color="#c2b6a4"
         )
         self.layout_info_lbl.pack(side="right", padx=20, pady=8)
+
+        # Initialize layout options dynamically from layout definitions
+        self._refresh_layout_options()
 
         # 3. BOTTOM ACTION BAR (PREVIEW, PDF & IMAGE EXPORT)
         bottom_bar = ctk.CTkFrame(self, fg_color=("#2e261f", "#1c1713"), corner_radius=0, height=62)
@@ -801,17 +832,7 @@ class MainWindow(ctk.CTk):
 
                 # Restore selected layout in UI dropdown if stored in package
                 if hasattr(self.edition, "selected_layout") and self.edition.selected_layout:
-                    for label, tid in [
-                        ("Layout 1: Broadsheet Lead & Gazette", "layout_1"),
-                        ("Layout 2: Double-Feature Spread", "layout_2"),
-                        ("Layout 3: Big Center Headline", "layout_3"),
-                        ("Layout 4: Breaking News Quad-Spread", "layout_4"),
-                        ("Layout 5: Broadsheet Classic Double-Lead", "layout_5"),
-                        ("Layout 6: Investigation & Wanted Sidebar", "layout_6"),
-                        ("Layout 7: Tabloid Spread & Central Feature", "layout_7"),
-                        ("Layout 8: Hero Portrait & Wanted Poster", "layout_8"),
-                        ("Layout 9: Multi-Column Dispatch Gazette", "layout_9"),
-                    ]:
+                    for label, tid in getattr(self, "layout_map", {}).items():
                         if self.edition.selected_layout == tid:
                             self.template_selector.set(label)
                             self._on_layout_changed(label)
@@ -869,41 +890,62 @@ class MainWindow(ctk.CTk):
                 parent=self,
             )
 
+    def _refresh_layout_options(self, preferred_selection=None):
+        """Dynamically reloads layouts from individual .prophettemplate files and populates the layout menu."""
+        data = load_layout_definitions(base_dir=getattr(self, 'base_dir', '.'))
+
+        self.layout_map = {}
+        self.layout_meta = {}
+
+        # Scan all single (non-alias) layouts
+        single_keys = [k for k in data.keys() if not k.startswith("additional_")]
+        for k in single_keys:
+            info = data[k]
+            label = info.get("label", k.replace("_", " ").title())
+            self.layout_map[label] = k
+            self.layout_meta[k] = {
+                "width": info.get("width", 1024),
+                "height": info.get("height", 1400),
+                "slots": len(info.get("slots", []))
+            }
+
+        # Multi-page option for all layouts
+        if len(single_keys) > 1:
+            multi_label = f"📚 Full {len(single_keys)}-Page Wizarding Publication (Multi-Page)"
+            self.layout_map[multi_label] = single_keys
+
+        labels = list(self.layout_map.keys())
+        self.template_selector.configure(values=labels)
+
+        current = preferred_selection or self.template_selector.get()
+        if current in self.layout_map:
+            self.template_selector.set(current)
+        elif labels:
+            self.template_selector.set(labels[0])
+
+        self._on_layout_changed(self.template_selector.get())
+
     def _on_layout_changed(self, choice: str):
         tids = self._get_selected_template_ids()
         if isinstance(tids, list):
             self.layout_info_lbl.configure(text=f"Multi-Page Issue • {len(tids)} Full Pages")
             self.status_lbl.configure(text=f"Selected: {choice} ({len(tids)} pages).")
         else:
-            info_map = {
-                "layout_1": "1122x1402 Broadsheet • 18 Content Slots",
-                "layout_2": "1122x1402 Broadsheet • 16 Content Slots",
-                "layout_3": "1122x1402 Broadsheet • 17 Content Slots",
-                "layout_4": "1122x1402 Quad-Spread • 17 Content Slots",
-                "layout_5": "1055x1491 Classic A4 • 16 Content Slots",
-                "layout_6": "1055x1491 Investigation • 17 Content Slots",
-                "layout_7": "1055x1491 Tabloid Spread • 16 Content Slots",
-                "layout_8": "1055x1491 Hero Portrait • 14 Content Slots",
-                "layout_9": "1055x1491 Dispatch Gazette • 17 Content Slots"
-            }
-            self.layout_info_lbl.configure(text=info_map.get(tids, "Vintage Wizarding Broadsheet"))
-            self.status_lbl.configure(text=f"Layout changed to: {choice}")
+            meta = getattr(self, "layout_meta", {}).get(tids, {})
+            w = meta.get("width", 1122)
+            h = meta.get("height", 1402)
+            slots_n = meta.get("slots", 18)
+            has_custom = bool(hasattr(self.edition, "custom_layouts") and self.edition.custom_layouts.get(tids))
+            badge = " • [Issue Slots Custom]" if has_custom else ""
+            self.layout_info_lbl.configure(text=f"{w}x{h} Broadsheet • {slots_n} Content Slots{badge}")
+            if hasattr(self, "status_lbl"):
+                self.status_lbl.configure(text=f"Layout changed to: {choice}")
 
     def _get_selected_template_ids(self) -> Union[str, List[str]]:
         selected = self.template_selector.get()
-        mapping = {
-            "Layout 1: Broadsheet Lead & Gazette": "layout_1",
-            "Layout 2: Double-Feature Spread": "layout_2",
-            "Layout 3: Big Center Headline": "layout_3",
-            "Layout 4: Breaking News Quad-Spread": "layout_4",
-            "Layout 5: Broadsheet Classic Double-Lead": "layout_5",
-            "Layout 6: Investigation & Wanted Sidebar": "layout_6",
-            "Layout 7: Tabloid Spread & Central Feature": "layout_7",
-            "Layout 8: Hero Portrait & Wanted Poster": "layout_8",
-            "Layout 9: Multi-Column Dispatch Gazette": "layout_9",
-            "📚 Full 9-Page Wizarding Publication (Multi-Page)": [f"layout_{i}" for i in range(1, 10)]
-        }
-        return mapping.get(selected, "layout_1")
+        if hasattr(self, "layout_map") and selected in self.layout_map:
+            return self.layout_map[selected]
+        return "layout_1"
 
     def _view_wireframe_mask(self):
         tids = self._get_selected_template_ids()
@@ -927,8 +969,19 @@ class MainWindow(ctk.CTk):
     def _open_layout_editor(self):
         tids = self._get_selected_template_ids()
         target_tid = tids[0] if isinstance(tids, list) else tids
-        LayoutEditorWindow(self, initial_layout=target_tid, base_dir=".")
+        LayoutEditorWindow(
+            self,
+            initial_layout=target_tid,
+            edition=self.edition,
+            on_project_save=self._on_layout_saved_to_project,
+            on_global_change=self._refresh_layout_options,
+            base_dir="."
+        )
         self.status_lbl.configure(text=f"Opened Layout Slot Editor for {target_tid.replace('_', ' ').title()}.")
+
+    def _on_layout_saved_to_project(self):
+        self._on_layout_changed(self.template_selector.get())
+        self.status_lbl.configure(text="Custom layout slots saved to this issue! Issue modified.")
 
     def _export_pdf(self):
         self._sync_settings_from_ui()
