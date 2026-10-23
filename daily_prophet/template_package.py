@@ -12,16 +12,51 @@ import json
 import zipfile
 from typing import Dict, Any, Optional, List
 from PIL import Image
+from .versioning import FormatVersion, CURRENT_TEMPLATE_VERSION, template_migration_pipeline
 
 SHIPPED_TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "default_templates")
 INSTALLED_TEMPLATES_DIR = os.path.join("assets", "templates", "installed")
 TEMPLATES_CACHE_DIR = os.path.join("assets", "templates", "cache")
+
+BUILTIN_SHIPPED_LAYOUTS = [f"layout_{i}" for i in range(1, 10)]
+
+
+def is_layout_modified(edition_layout: Optional[Dict[str, Any]], local_layout: Optional[Dict[str, Any]]) -> bool:
+    """Compares an issue-bundled layout against an installed local template.
+    Returns True if the issue layout has slot, rectangle, or property modifications.
+    """
+    if not edition_layout or not local_layout:
+        return False
+
+    e_slots = edition_layout.get("slots", [])
+    l_slots = local_layout.get("slots", [])
+
+    if len(e_slots) != len(l_slots):
+        return True
+
+    l_map = {s.get("id"): s for s in l_slots if "id" in s}
+
+    for es in e_slots:
+        sid = es.get("id")
+        if sid not in l_map:
+            return True
+        ls = l_map[sid]
+        if list(es.get("rect", [])) != list(ls.get("rect", [])):
+            return True
+        if es.get("type") != ls.get("type"):
+            return True
+        if es.get("label") != ls.get("label"):
+            return True
+
+    return False
 
 
 def create_template_package(
     layout_id: str,
     layout_data: Dict[str, Any],
     output_path: str,
+    target_version: str = CURRENT_TEMPLATE_VERSION,
+    is_bundled: Optional[bool] = None,
     base_dir: str = "."
 ) -> str:
     """Packages a single layout, its background artwork, and wireframe mask into a .prophettemplate file."""
@@ -29,6 +64,10 @@ def create_template_package(
         output_path += ".prophettemplate"
 
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+
+    # Determine bundled status (factory pre-included vs user custom)
+    if is_bundled is None:
+        is_bundled = layout_data.get("bundled", layout_id in BUILTIN_SHIPPED_LAYOUTS)
 
     # Locate background page artwork
     page_rel = layout_data.get("page_file", "")
@@ -40,13 +79,15 @@ def create_template_package(
     clean_data["id"] = layout_id
     clean_data["page_file"] = "page.png"
     clean_data["wireframe_file"] = "wireframe.png"
+    clean_data["bundled"] = bool(is_bundled)
 
     manifest = {
         "application": "The Daily Prophet",
         "format": "prophet_template",
-        "version": "1.0",
+        "format_version": str(CURRENT_TEMPLATE_VERSION),
         "layout_id": layout_id,
         "label": layout_data.get("label", layout_id),
+        "bundled": bool(is_bundled),
         "width": layout_data.get("width", 1122),
         "height": layout_data.get("height", 1402)
     }
@@ -87,16 +128,43 @@ def load_template_package(
         extract_dir = os.path.abspath(os.path.join(target_cache, clean_name))
         os.makedirs(extract_dir, exist_ok=True)
 
+        manifest = None
+        if "manifest.json" in zf.namelist():
+            try:
+                manifest = json.loads(zf.read("manifest.json").decode("utf-8"))
+            except Exception:
+                pass
+
         template_data = json.loads(zf.read("template.json").decode("utf-8"))
 
         for member in zf.namelist():
             if member in ["page.png", "wireframe.png"]:
                 zf.extract(member, extract_dir)
 
-        template_data["page_file"] = os.path.join(extract_dir, "page.png")
-        template_data["wireframe_file"] = os.path.join(extract_dir, "wireframe.png")
-        if "id" not in template_data:
-            template_data["id"] = clean_name
+        # Detect version and run through migration pipeline
+        raw_ver = "1.0"
+        if manifest:
+            raw_ver = manifest.get("format_version") or manifest.get("version", "1.0")
+        source_ver = FormatVersion.parse(raw_ver)
+        migrated_data, was_upgraded, orig_ver = template_migration_pipeline.migrate(template_data, source_ver)
+
+        # Determine bundled flag
+        is_b = False
+        if manifest and "bundled" in manifest:
+            is_b = bool(manifest["bundled"])
+        elif "bundled" in template_data:
+            is_b = bool(template_data["bundled"])
+        else:
+            is_b = clean_name in BUILTIN_SHIPPED_LAYOUTS
+
+        migrated_data["page_file"] = os.path.join(extract_dir, "page.png")
+        migrated_data["wireframe_file"] = os.path.join(extract_dir, "wireframe.png")
+        if "id" not in migrated_data:
+            migrated_data["id"] = clean_name
+        migrated_data["format_version"] = str(CURRENT_TEMPLATE_VERSION)
+        migrated_data["bundled"] = is_b
+
+        template_data = migrated_data
 
         # Also copy mask into assets/templates/masks/ for quick system preview
         try:
@@ -176,10 +244,26 @@ def delete_installed_template(
     installed_dir: Optional[str] = None,
     base_dir: str = "."
 ) -> bool:
-    """Deletes a custom .prophettemplate file."""
+    """Deletes a custom .prophettemplate file.
+    Refuses to delete factory bundled templates.
+    """
     inst_dir = installed_dir or os.path.join(base_dir, INSTALLED_TEMPLATES_DIR)
     target_file = os.path.join(inst_dir, f"{layout_id}.prophettemplate")
     backup_file = target_file + ".bak"
+
+    # Pre-included bundled templates cannot be deleted
+    if layout_id in BUILTIN_SHIPPED_LAYOUTS:
+        return False
+
+    if os.path.isfile(target_file):
+        try:
+            with zipfile.ZipFile(target_file, "r") as zf:
+                if "manifest.json" in zf.namelist():
+                    m = json.loads(zf.read("manifest.json").decode("utf-8"))
+                    if m.get("bundled", False):
+                        return False
+        except Exception:
+            pass
 
     deleted = False
     if os.path.isfile(target_file):

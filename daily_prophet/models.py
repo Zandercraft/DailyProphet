@@ -5,7 +5,9 @@ import uuid
 import json
 import os
 import zipfile
+import copy
 from typing import List, Optional
+from .versioning import FormatVersion, CURRENT_PROJECT_VERSION, project_migration_pipeline
 
 
 class StoryPriority(str, Enum):
@@ -80,6 +82,7 @@ class NewspaperEdition:
     stories: List[Story] = field(default_factory=list)
     selected_layout: str = "layout_1"
     custom_layouts: dict = field(default_factory=dict)
+    format_version: str = str(CURRENT_PROJECT_VERSION)
 
     def to_dict(self):
         d = asdict(self)
@@ -116,6 +119,18 @@ class NewspaperEdition:
             file_path += ".prophet"
 
         edition_dict = self.to_dict()
+
+        # Ensure active layout is bundled directly inside the .prophet file
+        target_tid = self.selected_layout
+        if isinstance(target_tid, list):
+            target_tid = target_tid[0] if target_tid else "layout_1"
+        if target_tid and target_tid not in edition_dict.get("custom_layouts", {}):
+            from .generate_masks import load_layout_definitions
+            all_defs = load_layout_definitions()
+            if target_tid in all_defs:
+                edition_dict.setdefault("custom_layouts", {})[target_tid] = copy.deepcopy(all_defs[target_tid])
+                self.custom_layouts[target_tid] = copy.deepcopy(all_defs[target_tid])
+
         media_files_to_pack = {}
 
         # Scan stories and collect images into package
@@ -141,7 +156,7 @@ class NewspaperEdition:
         manifest = {
             "application": "The Daily Prophet",
             "format": "prophet_package",
-            "version": "2.0",
+            "format_version": str(CURRENT_PROJECT_VERSION),
             "edition_title": self.paper_title,
             "selected_layout": self.selected_layout,
             "edition_date": self.edition_date,
@@ -162,6 +177,13 @@ class NewspaperEdition:
             return cls.load_from_file(file_path)
 
         with zipfile.ZipFile(file_path, "r") as zf:
+            manifest = None
+            if "manifest.json" in zf.namelist():
+                try:
+                    manifest = json.loads(zf.read("manifest.json").decode("utf-8"))
+                except Exception:
+                    pass
+
             edition_data = json.loads(zf.read("edition.json").decode("utf-8"))
 
             doc_name = os.path.splitext(os.path.basename(file_path))[0]
@@ -184,5 +206,13 @@ class NewspaperEdition:
                     if pf and pf.startswith("media/"):
                         ldef["page_file"] = os.path.join(extract_dir, pf.replace("/", os.sep))
 
-            edition = cls.from_dict(edition_data)
+            # Run through migration pipeline (extensible for future format versions)
+            raw_ver = "1.0"
+            if manifest:
+                raw_ver = manifest.get("format_version") or manifest.get("version", "1.0")
+            source_ver = FormatVersion.parse(raw_ver)
+            migrated_data, was_upgraded, orig_ver = project_migration_pipeline.migrate(edition_data, source_ver)
+
+            edition = cls.from_dict(migrated_data)
+            edition.format_version = str(CURRENT_PROJECT_VERSION)
             return edition

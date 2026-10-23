@@ -16,6 +16,7 @@ from .story_dialog import StoryDialog
 from .preview_window import open_webview_window, open_in_browser, save_temp_preview, open_image_preview
 from .layout_editor_window import LayoutEditorWindow
 from ..generate_masks import load_layout_definitions
+from ..versioning import ProjectMigrator, CURRENT_PROJECT_VERSION
 
 
 class MainWindow(ctk.CTk):
@@ -47,12 +48,8 @@ class MainWindow(ctk.CTk):
                 self.iconbitmap(self.icon_ico)
             except Exception:
                 pass
-        if os.path.exists(self.icon_png):
-            try:
-                icon_img = tk.PhotoImage(file=self.icon_png)
-                self.iconphoto(True, icon_img)
-            except Exception:
-                pass
+            if sys.platform == "win32":
+                self.after(200, self._apply_win32_icon)
 
         # Active edition state
         self.base_dir = os.path.abspath(".")
@@ -893,6 +890,7 @@ class MainWindow(ctk.CTk):
     def _refresh_layout_options(self, preferred_selection=None):
         """Dynamically reloads layouts from individual .prophettemplate files and populates the layout menu."""
         data = load_layout_definitions(base_dir=getattr(self, 'base_dir', '.'))
+        self.raw_layout_defs = data
 
         self.layout_map = {}
         self.layout_meta = {}
@@ -935,8 +933,15 @@ class MainWindow(ctk.CTk):
             w = meta.get("width", 1122)
             h = meta.get("height", 1402)
             slots_n = meta.get("slots", 18)
-            has_custom = bool(hasattr(self.edition, "custom_layouts") and self.edition.custom_layouts.get(tids))
-            badge = " • [Issue Slots Custom]" if has_custom else ""
+
+            local_defs = getattr(self, "raw_layout_defs", {})
+            edition_layout = self.edition.custom_layouts.get(tids) if hasattr(self.edition, "custom_layouts") else None
+            local_layout = local_defs.get(tids)
+
+            from ..template_package import is_layout_modified
+            is_mod = is_layout_modified(edition_layout, local_layout) if (edition_layout and local_layout) else False
+
+            badge = " • [Modified]" if is_mod else ""
             self.layout_info_lbl.configure(text=f"{w}x{h} Broadsheet • {slots_n} Content Slots{badge}")
             if hasattr(self, "status_lbl"):
                 self.status_lbl.configure(text=f"Layout changed to: {choice}")
@@ -1036,3 +1041,35 @@ class MainWindow(ctk.CTk):
         else:
             self.status_lbl.configure(text="Image export failed.")
             messagebox.showerror("Image Export Error", msg, parent=self)
+
+    def _apply_win32_icon(self):
+        """Explicitly set high-resolution native Windows icons on the HWND to bypass Tk downsampling."""
+        if sys.platform != "win32" or not hasattr(self, "icon_ico") or not os.path.exists(self.icon_ico):
+            return
+        try:
+            import ctypes
+            user32 = ctypes.windll.user32
+            hwnd = self.winfo_id()
+            root_hwnd = user32.GetAncestor(hwnd, 2)  # GA_ROOT
+            target_hwnd = root_hwnd if root_hwnd else hwnd
+
+            IMAGE_ICON = 1
+            LR_LOADFROMFILE = 0x00000010
+            WM_SETICON = 0x0080
+            ICON_SMALL = 0
+            ICON_BIG = 1
+
+            cx_big = user32.GetSystemMetrics(11)  # SM_CXICON
+            cy_big = user32.GetSystemMetrics(12)  # SM_CYICON
+            cx_sm = user32.GetSystemMetrics(49)   # SM_CXSMICON
+            cy_sm = user32.GetSystemMetrics(50)   # SM_CYSMICON
+
+            hicon_big = user32.LoadImageW(None, self.icon_ico, IMAGE_ICON, cx_big, cy_big, LR_LOADFROMFILE)
+            hicon_sm = user32.LoadImageW(None, self.icon_ico, IMAGE_ICON, cx_sm, cy_sm, LR_LOADFROMFILE)
+
+            if hicon_big:
+                user32.SendMessageW(target_hwnd, WM_SETICON, ICON_BIG, hicon_big)
+            if hicon_sm:
+                user32.SendMessageW(target_hwnd, WM_SETICON, ICON_SMALL, hicon_sm)
+        except Exception:
+            pass

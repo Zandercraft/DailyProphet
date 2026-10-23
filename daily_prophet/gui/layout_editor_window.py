@@ -36,6 +36,7 @@ from ..template_package import (
     save_installed_template,
     delete_installed_template,
     restore_template_from_shipped_or_backup,
+    is_layout_modified,
     INSTALLED_TEMPLATES_DIR,
     SHIPPED_TEMPLATES_DIR
 )
@@ -114,6 +115,10 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         self.orig_rect = None
         self.resize_handle = None
         self.drawing_rect = None
+
+        # By default on first open, turn off the checkbox to save to global template on editing,
+        # even if the project manifest had it as true.
+        self.save_to_global_var = ctk.BooleanVar(value=False)
 
         self._setup_ui()
         self._load_layout_into_editor(self.current_layout_key)
@@ -241,11 +246,23 @@ class LayoutEditorWindow(ctk.CTkToplevel):
             command=self._activate_draw_mode
         ).pack(side="left", padx=3)
 
+        # Checkbox to also update global template (defaults to OFF on open)
+        self.save_global_check = ctk.CTkCheckBox(
+            action_box,
+            text="Also update global template",
+            variable=self.save_to_global_var,
+            font=ctk.CTkFont(size=11),
+            text_color="#c2b6a4",
+            checkbox_width=18,
+            checkbox_height=18
+        )
+        self.save_global_check.pack(side="left", padx=6)
+
         # Primary default action: Save to this project
         ctk.CTkButton(
             action_box,
-            text="💾 Save to Issue (.prophet)",
-            width=170,
+            text="💾 Save Slots",
+            width=120,
             font=ctk.CTkFont(weight="bold"),
             fg_color="#8f2d2d",
             hover_color="#6e2020",
@@ -427,17 +444,28 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         self.slot_btn_items = []
 
     def _update_scope_badge(self):
-        """Updates indicator showing whether active layout has project-specific slot overrides."""
-        if self.current_layout_key in self.project_custom_layouts:
+        """Updates indicator showing whether active layout has modifications comparing against local template."""
+        active_layout = self.layouts_data.get(self.current_layout_key, {})
+        global_layout = self.global_layouts.get(self.current_layout_key, {})
+        is_mod = is_layout_modified(active_layout, global_layout)
+        is_bundled = active_layout.get("bundled", self.current_layout_key in BUILTIN_SHIPPED_LAYOUTS)
+
+        if is_mod:
             self.scope_badge.configure(
-                text="📌 Issue-Specific Slots",
-                fg_color="#8f2d2d",
+                text="📌 Modified",
+                fg_color="#8f4a2d",
                 text_color="#ffffff"
+            )
+        elif is_bundled:
+            self.scope_badge.configure(
+                text="🔒 Bundled Template",
+                fg_color="#3d342a",
+                text_color="#c2b6a4"
             )
         else:
             self.scope_badge.configure(
-                text="🌐 Global Template",
-                fg_color="#3d342a",
+                text="🌐 Custom Template",
+                fg_color="#2b3e50",
                 text_color="#c2b6a4"
             )
 
@@ -495,20 +523,27 @@ class LayoutEditorWindow(ctk.CTkToplevel):
             base_dir=self.base_dir
         )
 
+        # If checkbox is checked, also save to global template
+        saved_globally = False
+        if self.save_to_global_var.get():
+            self._save_to_global_template(quiet=True)
+            saved_globally = True
+
         self._update_scope_badge()
 
         if callable(self.on_project_save):
             self.on_project_save()
 
+        glob_msg = "\n\n(Also updated and saved to global installed template)." if saved_globally else ""
         messagebox.showinfo(
             "Saved to Issue",
-            f"Layout slots for '{active_layout.get('label', self.current_layout_key)}' saved directly to this newspaper issue.\n\n"
+            f"Layout slots for '{active_layout.get('label', self.current_layout_key)}' saved directly to this newspaper issue.{glob_msg}\n\n"
             "These custom slots will be preserved in your .prophet project file and used for rendering and exports.",
             parent=self
         )
 
     def _export_template_package(self):
-        """Exports the active layout to a standalone .prophettemplate file."""
+        """Exports the active layout to a standalone .prophettemplate file (with compatibility options)."""
         active_layout = self.layouts_data.get(self.current_layout_key)
         if not active_layout:
             return
@@ -518,7 +553,11 @@ class LayoutEditorWindow(ctk.CTkToplevel):
             title=f"Export Template - {active_layout.get('label', self.current_layout_key)}",
             defaultextension=".prophettemplate",
             initialfile=f"{self.current_layout_key}.prophettemplate",
-            filetypes=[("The Daily Prophet Template Package", "*.prophettemplate"), ("All Files", "*.*")]
+            filetypes=[
+                ("The Daily Prophet Template Package (*.prophettemplate)", "*.prophettemplate"),
+                ("Legacy Compatibility Template v1.0 (*.prophettemplate)", "*.prophettemplate"),
+                ("All Files", "*.*")
+            ]
         )
         if out_path:
             try:
@@ -526,11 +565,12 @@ class LayoutEditorWindow(ctk.CTkToplevel):
                     self.current_layout_key,
                     active_layout,
                     out_path,
+                    target_version=CURRENT_TEMPLATE_VERSION,
                     base_dir=self.base_dir
                 )
                 messagebox.showinfo(
                     "Export Successful",
-                    f"Template packaged successfully as a single self-contained file:\n\n{os.path.basename(pkg_file)}",
+                    f"Template packaged successfully as a single self-contained file (v{CURRENT_TEMPLATE_VERSION}):\n\n{os.path.basename(pkg_file)}",
                     parent=self
                 )
             except Exception as e:
@@ -573,7 +613,7 @@ class LayoutEditorWindow(ctk.CTkToplevel):
             except Exception as e:
                 messagebox.showerror("Import Error", f"Failed to import template package: {e}", parent=self)
 
-    def _save_to_global_template(self):
+    def _save_to_global_template(self, quiet: bool = False):
         """Saves layout slots to an individual .prophettemplate file with auto-backup."""
         active_layout = self.layouts_data.get(self.current_layout_key)
         if not active_layout:
@@ -590,7 +630,8 @@ class LayoutEditorWindow(ctk.CTkToplevel):
             save_installed_template(self.current_layout_key, active_layout, base_dir=self.base_dir)
             save_global_layout_definitions(self.global_layouts, defs_path=self.defs_path, base_dir=self.base_dir)
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to save template package: {e}", parent=self)
+            if not quiet:
+                messagebox.showerror("Error", f"Failed to save template package: {e}", parent=self)
             return
 
         # Rebuild wireframe mask
@@ -603,14 +644,15 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         if callable(self.on_global_change):
             self.on_global_change()
 
-        messagebox.showinfo(
-            "Saved to Global Templates",
-            f"Template '{active_layout.get('label', self.current_layout_key)}' saved globally!\n\n"
-            f"Saved to assets/templates/installed/{self.current_layout_key}.prophettemplate\n"
-            f"(A backup copy is preserved as {self.current_layout_key}.prophettemplate.bak).\n\n"
-            "All new issues using this layout will automatically use these updated slots.",
-            parent=self
-        )
+        if not quiet:
+            messagebox.showinfo(
+                "Saved to Global Templates",
+                f"Template '{active_layout.get('label', self.current_layout_key)}' saved globally!\n\n"
+                f"Saved to assets/templates/installed/{self.current_layout_key}.prophettemplate\n"
+                f"(A backup copy is preserved as {self.current_layout_key}.prophettemplate.bak).\n\n"
+                "All new issues using this layout will automatically use these updated slots.",
+                parent=self
+            )
 
     def _show_reset_dialog(self):
         """Allows resetting project-specific slots or factory shipped defaults."""
@@ -857,12 +899,13 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         ).pack(side="right", padx=4)
 
     def _confirm_delete_template(self):
-        """Deletes a user-created template."""
-        if self.current_layout_key in BUILTIN_SHIPPED_LAYOUTS:
+        """Deletes a user-created template. Bundled templates cannot be deleted."""
+        active_layout = self.layouts_data.get(self.current_layout_key, {})
+        if active_layout.get("bundled", False) or self.current_layout_key in BUILTIN_SHIPPED_LAYOUTS:
             messagebox.showwarning(
-                "Cannot Delete Shipped Template",
-                f"'{self.current_layout_key}' is a built-in shipped template and cannot be deleted.\n\n"
-                "If you made unwanted changes, click 'Reset' to restore factory slots.",
+                "Cannot Delete Bundled Template",
+                f"'{self.current_layout_key}' is a pre-included bundled template and cannot be deleted.\n\n"
+                "You can freely modify its slots or click 'Reset' to restore factory defaults.",
                 parent=self
             )
             return
