@@ -110,13 +110,38 @@ class StoryDialog(ctk.CTkToplevel):
         self.image_path_entry = ctk.CTkEntry(picker_row, textvariable=self.image_path_var, placeholder_text="No image selected (optional)")
         self.image_path_entry.pack(side="left", fill="x", expand=True, padx=(0, 8))
 
-        browse_btn = ctk.CTkButton(picker_row, text="Browse Image...", width=120, command=self._browse_image)
+        browse_btn = ctk.CTkButton(
+            picker_row,
+            text=" Browse Image...",
+            image=IconManager.get_icon("folder-open", size=13),
+            compound="left",
+            width=130,
+            command=self._browse_image
+        )
         browse_btn.pack(side="left", padx=(0, 6))
 
-        lib_btn = ctk.CTkButton(picker_row, text="Image Library...", width=125, fg_color=Theme.BTN_SECONDARY[0], hover_color=Theme.BTN_SECONDARY[1], command=lambda: self._open_library(is_cutout_target=False))
+        lib_btn = ctk.CTkButton(
+            picker_row,
+            text=" Image Library...",
+            image=IconManager.get_icon("image", size=13),
+            compound="left",
+            width=135,
+            fg_color=Theme.BTN_SECONDARY[0],
+            hover_color=Theme.BTN_SECONDARY[1],
+            command=lambda: self._open_library(is_cutout_target=False)
+        )
         lib_btn.pack(side="left", padx=(0, 6))
 
-        clear_img_btn = ctk.CTkButton(picker_row, text="Clear", width=55, fg_color="gray50", hover_color="gray40", command=self._clear_image)
+        clear_img_btn = ctk.CTkButton(
+            picker_row,
+            text=" Clear",
+            image=IconManager.get_icon("x", size=12),
+            compound="left",
+            width=65,
+            fg_color=Theme.BTN_CONTROL[0],
+            hover_color=Theme.BTN_CONTROL[1],
+            command=self._clear_image
+        )
         clear_img_btn.pack(side="left")
 
         # Thumbnail display
@@ -154,15 +179,26 @@ class StoryDialog(ctk.CTkToplevel):
 
         cutout_lib_btn = ctk.CTkButton(
             cutout_row,
-            text="Select from Library...",
-            width=140,
+            text=" Select Cutout...",
+            image=IconManager.get_icon("sparkles", size=13),
+            compound="left",
+            width=135,
             fg_color=Theme.BTN_PRIMARY[0],
             hover_color=Theme.BTN_PRIMARY[1],
             command=lambda: self._open_library(is_cutout_target=True),
         )
         cutout_lib_btn.pack(side="left", padx=(0, 6))
 
-        clear_cutout_btn = ctk.CTkButton(cutout_row, text="Clear", width=55, fg_color="gray50", hover_color="gray40", command=self._clear_cutout)
+        clear_cutout_btn = ctk.CTkButton(
+            cutout_row,
+            text=" Clear",
+            image=IconManager.get_icon("x", size=12),
+            compound="left",
+            width=65,
+            fg_color=Theme.BTN_CONTROL[0],
+            hover_color=Theme.BTN_CONTROL[1],
+            command=self._clear_cutout
+        )
         clear_cutout_btn.pack(side="left")
 
         # Alignment row
@@ -210,7 +246,9 @@ class StoryDialog(ctk.CTkToplevel):
 
         cancel_btn = ctk.CTkButton(
             action_bar,
-            text="Cancel",
+            text=" Cancel",
+            image=IconManager.get_icon("x", size=13),
+            compound="left",
             fg_color="transparent",
             border_width=1,
             text_color=("gray20", "gray80"),
@@ -221,12 +259,14 @@ class StoryDialog(ctk.CTkToplevel):
 
         save_btn = ctk.CTkButton(
             action_bar,
-            text="Save Story Article",
+            text=" Save Story Article",
+            image=IconManager.get_icon("save", size=14),
+            compound="left",
             fg_color=Theme.BTN_PRIMARY[0],
             hover_color=Theme.BTN_PRIMARY[1],
             font=ctk.CTkFont(weight="bold"),
             command=self._save_story,
-            width=160,
+            width=165,
         )
         save_btn.pack(side="right")
 

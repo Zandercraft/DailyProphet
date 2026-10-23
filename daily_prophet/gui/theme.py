@@ -159,7 +159,7 @@ class IconManager:
             cls._has_material = False
 
         try:
-            from tkinter_icons import RPGAwesomeIcon
+            from tkinter_icons import RpgAwesomeIcon
             cls._has_rpg = True
         except ImportError:
             cls._has_rpg = False
@@ -182,26 +182,28 @@ class IconManager:
 
         pil_img = None
         try:
+            icon_obj = None
             if pack == "lucide" and cls._has_lucide:
                 from tkinter_icons import LucideIcon
                 icon_obj = LucideIcon(name, size=size, color=icon_color)
-                pil_img = getattr(icon_obj, "image", None) or getattr(icon_obj, "pil_image", None)
             elif pack == "material" and cls._has_material:
                 from tkinter_icons import MaterialIcon
                 icon_obj = MaterialIcon(name, size=size, color=icon_color)
-                pil_img = getattr(icon_obj, "image", None) or getattr(icon_obj, "pil_image", None)
             elif pack == "rpg" and cls._has_rpg:
-                from tkinter_icons import RPGAwesomeIcon
-                icon_obj = RPGAwesomeIcon(name, size=size, color=icon_color)
-                pil_img = getattr(icon_obj, "image", None) or getattr(icon_obj, "pil_image", None)
+                from tkinter_icons import RpgAwesomeIcon
+                icon_obj = RpgAwesomeIcon(name, size=size, color=icon_color)
+
+            if icon_obj is not None:
+                if hasattr(icon_obj, "to_pil"):
+                    pil_img = icon_obj.to_pil()
+                elif hasattr(icon_obj, "render_pil"):
+                    pil_img = icon_obj.render_pil()
         except Exception:
             pil_img = None
 
-        if pil_img is not None:
-            # If icon_obj returned a PIL Image, wrap in CTkImage
-            if isinstance(pil_img, Image.Image):
-                ctk_img = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=(size, size))
-                cls._cache[cache_key] = ctk_img
-                return ctk_img
+        if pil_img is not None and isinstance(pil_img, Image.Image):
+            ctk_img = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=(size, size))
+            cls._cache[cache_key] = ctk_img
+            return ctk_img
 
         return None

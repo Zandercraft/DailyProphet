@@ -7,3 +7,4 @@ pytesseract~=0.3.13
 opencv-python~=5.0.0.93
 rembg[cpu]~=2.0.86
 onnxruntime~=1.31.0
+tkinter-icons[lucide,material,rpg-awesome]~=5.1.0

@@ -104,8 +104,10 @@ class MainWindow(ctk.CTk):
 
         ctk.CTkButton(
             top_btns,
-            text="Hogwarts Issue",
-            width=130,
+            text=" Hogwarts Issue",
+            image=IconManager.get_icon("scroll-unfurled", size=14, pack="rpg"),
+            compound="left",
+            width=135,
             fg_color=Theme.BTN_PRIMARY[0],
             hover_color=Theme.BTN_PRIMARY[1],
             command=self._load_hogwarts_original,
@@ -113,8 +115,10 @@ class MainWindow(ctk.CTk):
 
         ctk.CTkButton(
             top_btns,
-            text="Azkaban Edition",
-            width=130,
+            text=" Azkaban Edition",
+            image=IconManager.get_icon("skull", size=14, pack="rpg"),
+            compound="left",
+            width=135,
             fg_color=Theme.BTN_SECONDARY[0],
             hover_color=Theme.BTN_SECONDARY[1],
             command=self._load_azkaban_sample,
@@ -122,8 +126,10 @@ class MainWindow(ctk.CTk):
 
         ctk.CTkButton(
             top_btns,
-            text="Open...",
-            width=75,
+            text=" Open...",
+            image=IconManager.get_icon("folder-open", size=13),
+            compound="left",
+            width=85,
             fg_color=Theme.BTN_NEUTRAL[0],
             hover_color=Theme.BTN_NEUTRAL[1],
             command=self._open_project,
@@ -131,8 +137,10 @@ class MainWindow(ctk.CTk):
 
         ctk.CTkButton(
             top_btns,
-            text="Save",
-            width=65,
+            text=" Save",
+            image=IconManager.get_icon("save", size=13),
+            compound="left",
+            width=75,
             fg_color=Theme.BTN_SECONDARY[0],
             hover_color=Theme.BTN_SECONDARY[1],
             command=self._save_project,
@@ -140,8 +148,10 @@ class MainWindow(ctk.CTk):
 
         ctk.CTkButton(
             top_btns,
-            text="Save As...",
-            width=85,
+            text=" Save As...",
+            image=IconManager.get_icon("save", size=13),
+            compound="left",
+            width=95,
             fg_color=Theme.BTN_SECONDARY[0],
             hover_color=Theme.BTN_SECONDARY[1],
             command=self._save_as_project,
@@ -149,8 +159,10 @@ class MainWindow(ctk.CTk):
 
         ctk.CTkButton(
             top_btns,
-            text="New",
-            width=60,
+            text=" New",
+            image=IconManager.get_icon("plus", size=13),
+            compound="left",
+            width=70,
             fg_color=Theme.BTN_NEUTRAL[0],
             hover_color=Theme.BTN_NEUTRAL[1],
             command=self._new_project,
@@ -160,8 +172,8 @@ class MainWindow(ctk.CTk):
         self.tabview = ctk.CTkTabview(self, corner_radius=8)
         self.tabview.pack(fill="both", expand=True, padx=16, pady=(10, 6))
 
-        self.tab_stories = self.tabview.add("📰 Stories & Layout")
-        self.tab_settings = self.tabview.add("⚙️ Newspaper Header & Settings")
+        self.tab_stories = self.tabview.add("Stories & Layout")
+        self.tab_settings = self.tabview.add("Newspaper Header & Settings")
 
         self._setup_stories_tab()
         self._setup_settings_tab()
@@ -194,19 +206,23 @@ class MainWindow(ctk.CTk):
 
         ctk.CTkButton(
             layout_bar,
-            text="👁️ View Wireframe Mask",
-            width=165,
-            fg_color="#54483a",
-            hover_color="#6e5e4c",
+            text=" View Mask",
+            image=IconManager.get_icon("eye", size=14),
+            compound="left",
+            width=120,
+            fg_color=Theme.BTN_SECONDARY[0],
+            hover_color=Theme.BTN_SECONDARY[1],
             command=self._view_wireframe_mask
         ).pack(side="left", padx=6, pady=8)
 
         ctk.CTkButton(
             layout_bar,
-            text="✏️ Edit Layout Slots",
-            width=155,
-            fg_color="#3d5a45",
-            hover_color="#2b4736",
+            text=" Edit Layout Slots",
+            image=IconManager.get_icon("pencil", size=14),
+            compound="left",
+            width=150,
+            fg_color=Theme.BTN_SUCCESS[0],
+            hover_color=Theme.BTN_SUCCESS[1],
             command=self._open_layout_editor
         ).pack(side="left", padx=4, pady=8)
 
@@ -240,8 +256,10 @@ class MainWindow(ctk.CTk):
 
         ctk.CTkButton(
             action_btns,
-            text="Preview Publication",
-            width=165,
+            text=" Preview Publication",
+            image=IconManager.get_icon("eye", size=16),
+            compound="left",
+            width=175,
             height=36,
             font=ctk.CTkFont(size=13, weight="bold"),
             fg_color=Theme.BTN_PRIMARY[0],
@@ -251,8 +269,10 @@ class MainWindow(ctk.CTk):
 
         ctk.CTkButton(
             action_btns,
-            text="Export PDF",
-            width=135,
+            text=" Export PDF",
+            image=IconManager.get_icon("file-text", size=16),
+            compound="left",
+            width=140,
             height=36,
             font=ctk.CTkFont(size=12, weight="bold"),
             fg_color=Theme.BTN_SUCCESS[0],
@@ -262,8 +282,10 @@ class MainWindow(ctk.CTk):
 
         ctk.CTkButton(
             action_btns,
-            text="Export Image",
-            width=135,
+            text=" Export Image",
+            image=IconManager.get_icon("image", size=16),
+            compound="left",
+            width=140,
             height=36,
             font=ctk.CTkFont(size=12, weight="bold"),
             fg_color=Theme.BTN_NEUTRAL[0],
@@ -292,8 +314,10 @@ class MainWindow(ctk.CTk):
 
         ctk.CTkButton(
             stories_bar,
-            text="Add Story",
-            width=100,
+            text=" Add Story",
+            image=IconManager.get_icon("plus", size=14),
+            compound="left",
+            width=110,
             fg_color=Theme.BTN_PRIMARY[0],
             hover_color=Theme.BTN_PRIMARY[1],
             command=self._add_story,
@@ -307,10 +331,10 @@ class MainWindow(ctk.CTk):
         list_ctrls = ctk.CTkFrame(left_pane, fg_color="transparent")
         list_ctrls.pack(fill="x", padx=12, pady=(6, 10))
 
-        ctk.CTkButton(list_ctrls, text="Move Up", width=85, fg_color=Theme.BTN_CONTROL[0], hover_color=Theme.BTN_CONTROL[1], command=self._move_story_up).pack(side="left", padx=(0, 4))
-        ctk.CTkButton(list_ctrls, text="Move Down", width=85, fg_color=Theme.BTN_CONTROL[0], hover_color=Theme.BTN_CONTROL[1], command=self._move_story_down).pack(side="left", padx=4)
-        ctk.CTkButton(list_ctrls, text="Edit Story", width=95, fg_color=Theme.BTN_SECONDARY[0], hover_color=Theme.BTN_SECONDARY[1], command=self._edit_selected_story).pack(side="left", padx=4)
-        ctk.CTkButton(list_ctrls, text="Delete", width=75, fg_color=Theme.BTN_DANGER[0], hover_color=Theme.BTN_DANGER[1], command=self._delete_selected_story).pack(side="right")
+        ctk.CTkButton(list_ctrls, text=" Up", image=IconManager.get_icon("arrow-up", size=13), compound="left", width=75, fg_color=Theme.BTN_CONTROL[0], hover_color=Theme.BTN_CONTROL[1], command=self._move_story_up).pack(side="left", padx=(0, 4))
+        ctk.CTkButton(list_ctrls, text=" Down", image=IconManager.get_icon("arrow-down", size=13), compound="left", width=80, fg_color=Theme.BTN_CONTROL[0], hover_color=Theme.BTN_CONTROL[1], command=self._move_story_down).pack(side="left", padx=4)
+        ctk.CTkButton(list_ctrls, text=" Edit", image=IconManager.get_icon("pencil", size=13), compound="left", width=80, fg_color=Theme.BTN_SECONDARY[0], hover_color=Theme.BTN_SECONDARY[1], command=self._edit_selected_story).pack(side="left", padx=4)
+        ctk.CTkButton(list_ctrls, text=" Delete", image=IconManager.get_icon("trash-2", size=13), compound="left", width=85, fg_color=Theme.BTN_DANGER[0], hover_color=Theme.BTN_DANGER[1], command=self._delete_selected_story).pack(side="right")
 
         # RIGHT PANE: Story Inspector
         self.right_pane = ctk.CTkFrame(split_frame, width=380)

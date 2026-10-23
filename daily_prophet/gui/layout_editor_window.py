@@ -160,8 +160,10 @@ class LayoutEditorWindow(ctk.CTkToplevel):
 
         ctk.CTkButton(
             mgmt_box,
-            text="New",
-            width=65,
+            text=" New",
+            image=IconManager.get_icon("plus", size=13),
+            compound="left",
+            width=70,
             fg_color=Theme.BTN_NEUTRAL[0],
             hover_color=Theme.BTN_NEUTRAL[1],
             font=ctk.CTkFont(size=11),
@@ -170,8 +172,10 @@ class LayoutEditorWindow(ctk.CTkToplevel):
 
         ctk.CTkButton(
             mgmt_box,
-            text="Import",
-            width=70,
+            text=" Import",
+            image=IconManager.get_icon("file-down", size=13),
+            compound="left",
+            width=80,
             fg_color=Theme.BTN_SUCCESS[0],
             hover_color=Theme.BTN_SUCCESS[1],
             font=ctk.CTkFont(size=11),
@@ -180,8 +184,10 @@ class LayoutEditorWindow(ctk.CTkToplevel):
 
         ctk.CTkButton(
             mgmt_box,
-            text="Export",
-            width=70,
+            text=" Export",
+            image=IconManager.get_icon("file-up", size=13),
+            compound="left",
+            width=80,
             fg_color=Theme.BTN_SUCCESS[0],
             hover_color=Theme.BTN_SUCCESS[1],
             font=ctk.CTkFont(size=11),
@@ -190,8 +196,10 @@ class LayoutEditorWindow(ctk.CTkToplevel):
 
         self.delete_btn = ctk.CTkButton(
             mgmt_box,
-            text="Delete",
-            width=70,
+            text=" Delete",
+            image=IconManager.get_icon("trash-2", size=13),
+            compound="left",
+            width=75,
             fg_color=Theme.BTN_DANGER[0],
             hover_color=Theme.BTN_DANGER[1],
             font=ctk.CTkFont(size=11),
@@ -200,8 +208,10 @@ class LayoutEditorWindow(ctk.CTkToplevel):
 
         self.reset_btn = ctk.CTkButton(
             mgmt_box,
-            text="Reset",
-            width=65,
+            text=" Reset",
+            image=IconManager.get_icon("rotate-ccw", size=13),
+            compound="left",
+            width=75,
             fg_color=Theme.BTN_SECONDARY[0],
             hover_color=Theme.BTN_SECONDARY[1],
             font=ctk.CTkFont(size=11),
@@ -226,8 +236,10 @@ class LayoutEditorWindow(ctk.CTkToplevel):
 
         ctk.CTkButton(
             action_box,
-            text="New Slot (Drag)",
-            width=120,
+            text=" New Slot (Drag)",
+            image=IconManager.get_icon("plus", size=13),
+            compound="left",
+            width=135,
             fg_color=Theme.BTN_SUCCESS[0],
             hover_color=Theme.BTN_SUCCESS[1],
             command=self._activate_draw_mode
@@ -248,8 +260,10 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         # Primary default action: Save to this project
         ctk.CTkButton(
             action_box,
-            text="Save Slots",
-            width=115,
+            text=" Save Slots",
+            image=IconManager.get_icon("save", size=14),
+            compound="left",
+            width=120,
             font=ctk.CTkFont(weight="bold"),
             fg_color=Theme.BTN_PRIMARY[0],
             hover_color=Theme.BTN_PRIMARY[1],
@@ -259,8 +273,10 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         # Global template save action
         ctk.CTkButton(
             action_box,
-            text="Save Global Template",
-            width=150,
+            text=" Save Global Template",
+            image=IconManager.get_icon("globe", size=14),
+            compound="left",
+            width=165,
             font=ctk.CTkFont(size=11),
             fg_color=Theme.BTN_NEUTRAL[0],
             hover_color=Theme.BTN_NEUTRAL[1],
@@ -401,7 +417,9 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         # Delete Slot Button
         ctk.CTkButton(
             self.edit_frame,
-            text="Delete Selected Slot",
+            text=" Delete Selected Slot",
+            image=IconManager.get_icon("trash-2", size=14),
+            compound="left",
             fg_color=Theme.BTN_DANGER[0],
             hover_color=Theme.BTN_DANGER[1],
             height=28,

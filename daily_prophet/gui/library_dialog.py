@@ -3,7 +3,7 @@ import os
 import customtkinter as ctk
 from PIL import Image
 from typing import Callable, Optional, Dict, List
-from .theme import Theme
+from .theme import Theme, IconManager
 
 
 class ImageLibraryDialog(ctk.CTkToplevel):
@@ -95,7 +95,7 @@ class ImageLibraryDialog(ctk.CTkToplevel):
             # Title
             name_text = item["name"]
             if item["is_cutout"]:
-                name_text += " (Cutout ✨)"
+                name_text += " (Cutout)"
 
             ctk.CTkLabel(
                 card,
@@ -106,11 +106,14 @@ class ImageLibraryDialog(ctk.CTkToplevel):
             ).pack(padx=8, pady=2)
 
             # Choose button
+            icon = IconManager.get_icon("sparkles" if item["is_cutout"] else "check", size=13)
             btn = ctk.CTkButton(
                 card,
-                text="Use as Inline Cutout" if item["is_cutout"] else "Select Image",
-                fg_color="#6e1919" if item["is_cutout"] else "#3d3226",
-                hover_color="#872222" if item["is_cutout"] else "#574838",
+                text=" Use as Inline Cutout" if item["is_cutout"] else " Select Image",
+                image=icon,
+                compound="left",
+                fg_color=Theme.BTN_PRIMARY[0] if item["is_cutout"] else Theme.BTN_SECONDARY[0],
+                hover_color=Theme.BTN_PRIMARY[1] if item["is_cutout"] else Theme.BTN_SECONDARY[1],
                 height=26,
                 font=ctk.CTkFont(size=11, weight="bold"),
                 command=lambda p=item["path"], c=item["is_cutout"]: self._on_item_chosen(p, c),
