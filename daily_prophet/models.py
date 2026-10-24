@@ -1,4 +1,5 @@
 """Data models for The Daily Prophet newspaper generator."""
+
 from dataclasses import dataclass, field, asdict
 from enum import Enum
 import uuid
@@ -12,6 +13,7 @@ from .versioning import FormatVersion, CURRENT_PROJECT_VERSION, project_migratio
 
 class StoryPriority(str, Enum):
     """Priority level determining layout placement hierarchy."""
+
     COVER = "Cover Story (Hero)"
     MAJOR = "Major Feature / Side Lead"
     COLUMN = "Side Column"
@@ -34,6 +36,7 @@ class StoryPriority(str, Enum):
 
 class ImageAlign(str, Enum):
     """Alignment direction for inline transparent cutout silhouettes."""
+
     RIGHT = "right"
     LEFT = "left"
     CENTER = "center"
@@ -55,6 +58,7 @@ class ImageAlign(str, Enum):
 
 class BoxStyle(str, Enum):
     """Styling motif for notice boxes, decrees, quotes, and callouts."""
+
     STANDARD = "standard"
     ORNATE_BOX = "ornate_box"
     PARCHMENT_SCROLL = "parchment_scroll"
@@ -79,6 +83,7 @@ class BoxStyle(str, Enum):
 
 class PaperTheme(str, Enum):
     """Color palette and paper texture theme for newspaper rendering."""
+
     ORIGINAL_PROPHET = "original_prophet"
     PARCHMENT = "parchment"
     CLASSIC_NEWSPRINT = "classic_newsprint"
@@ -101,6 +106,7 @@ class PaperTheme(str, Enum):
 
 class BorderStyle(str, Enum):
     """Decorative broadsheet boundary engraved rule styling."""
+
     ORNATE_ENGRAVED = "ornate_engraved"
     WEATHERED_BORDER = "weathered_border"
     CLEAN_RULED = "clean_ruled"
@@ -122,6 +128,7 @@ class BorderStyle(str, Enum):
 
 class ExportFormat(str, Enum):
     """File export format targets."""
+
     PROJECT = "prophet"
     TEMPLATE = "prophettemplate"
     HTML = "html"
@@ -154,7 +161,11 @@ class Story:
     def to_dict(self):
         d = asdict(self)
         d["priority"] = self.priority.value if isinstance(self.priority, StoryPriority) else str(self.priority)
-        d["inline_image_align"] = self.inline_image_align.value if isinstance(self.inline_image_align, ImageAlign) else str(self.inline_image_align)
+        d["inline_image_align"] = (
+            self.inline_image_align.value
+            if isinstance(self.inline_image_align, ImageAlign)
+            else str(self.inline_image_align)
+        )
         d["box_style"] = self.box_style.value if isinstance(self.box_style, BoxStyle) else str(self.box_style)
         return d
 
@@ -185,7 +196,7 @@ class NewspaperPage:
             "page_number": self.page_number,
             "title": self.title,
             "layout_id": self.layout_id,
-            "stories": [s.to_dict() for s in self.stories]
+            "stories": [s.to_dict() for s in self.stories],
         }
 
     @classmethod
@@ -235,7 +246,7 @@ class NewspaperEdition:
                     page_number=1,
                     title="Front Page",
                     layout_id=self.selected_layout or "layout_1",
-                    stories=list(self.stories)
+                    stories=list(self.stories),
                 )
             ]
         elif not self.stories and self.pages:
@@ -264,7 +275,7 @@ class NewspaperEdition:
             page_number=next_num,
             title=page_title,
             layout_id=layout_id,
-            stories=[]
+            stories=[],
         )
         self.pages.append(new_page)
         return new_page
@@ -302,7 +313,9 @@ class NewspaperEdition:
         d["pages"] = [p.to_dict() for p in self.pages]
         d["stories"] = [s.to_dict() for s in self.all_stories()]
         d["theme"] = self.theme.value if isinstance(self.theme, PaperTheme) else str(self.theme)
-        d["border_style"] = self.border_style.value if isinstance(self.border_style, BorderStyle) else str(self.border_style)
+        d["border_style"] = (
+            self.border_style.value if isinstance(self.border_style, BorderStyle) else str(self.border_style)
+        )
         return d
 
     @classmethod
@@ -323,7 +336,7 @@ class NewspaperEdition:
                     page_number=1,
                     title="Front Page",
                     layout_id=data.get("selected_layout", "layout_1"),
-                    stories=stories
+                    stories=stories,
                 )
             ]
 
@@ -364,6 +377,7 @@ class NewspaperEdition:
             target_tid = target_tid[0] if target_tid else "layout_1"
         if target_tid and target_tid not in edition_dict.get("custom_layouts", {}):
             from .generate_masks import load_layout_definitions
+
             all_defs = load_layout_definitions()
             if target_tid in all_defs:
                 edition_dict.setdefault("custom_layouts", {})[target_tid] = copy.deepcopy(all_defs[target_tid])
@@ -398,7 +412,7 @@ class NewspaperEdition:
             "edition_title": self.paper_title,
             "selected_layout": self.selected_layout,
             "edition_date": self.edition_date,
-            "issue_number": self.issue_number
+            "issue_number": self.issue_number,
         }
 
         os.makedirs(os.path.dirname(os.path.abspath(file_path)), exist_ok=True)

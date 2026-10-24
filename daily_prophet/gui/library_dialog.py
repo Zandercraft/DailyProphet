@@ -1,4 +1,5 @@
 """Visual Image Library dialog for selecting Harry Potter & Hogwarts Legacy artwork."""
+
 import os
 import customtkinter as ctk
 from PIL import Image
@@ -45,20 +46,24 @@ class ImageLibraryDialog(ctk.CTkToplevel):
                     if f.lower().endswith((".png", ".jpg", ".jpeg")):
                         full_p = os.path.join(dir_path, f)
                         is_cutout = "_cutout" in f.lower() or "transparent" in f.lower()
-                        label = f.replace("_cutout", "").replace("_", " ").replace(".png", "").replace(".jpg", "").title()
-                        self.library_items[cat].append({
-                            "name": label,
-                            "filename": f,
-                            "path": full_p,
-                            "is_cutout": is_cutout,
-                        })
+                        label = (
+                            f.replace("_cutout", "").replace("_", " ").replace(".png", "").replace(".jpg", "").title()
+                        )
+                        self.library_items[cat].append(
+                            {
+                                "name": label,
+                                "filename": f,
+                                "path": full_p,
+                                "is_cutout": is_cutout,
+                            }
+                        )
 
     def _setup_ui(self):
         # Header
         Theme.create_header_banner(
             self,
             title="Artwork & Character Library",
-            subtitle="Select an illustration or transparent character cutout for your story"
+            subtitle="Select an illustration or transparent character cutout for your story",
         )
 
         # Tab view for categories

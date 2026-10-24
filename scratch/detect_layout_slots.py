@@ -1,8 +1,10 @@
 """Detects borders, frames, dividers, and content slots in newspaper layout templates."""
+
 import cv2
 import numpy as np
 import json
 import os
+
 
 def analyze_template_structure(img_path):
     img = cv2.imread(img_path)
@@ -23,8 +25,8 @@ def analyze_template_structure(img_path):
     bot_m = h - 30
 
     # Search for sharpest margin lines in the outer 10%
-    x_grads = np.mean(grad_mag, axis=0)
-    y_grads = np.mean(grad_mag, axis=1)
+    _x_grads = np.mean(grad_mag, axis=0)
+    _y_grads = np.mean(grad_mag, axis=1)
 
     # 2. Detect prominent horizontal divider lines across the page
     # Threshold for dark ink lines
@@ -87,7 +89,7 @@ def analyze_template_structure(img_path):
     band_limits = [top_m] + merged_dividers + [bot_m]
     for i in range(len(band_limits) - 1):
         by1 = band_limits[i]
-        by2 = band_limits[i+1]
+        by2 = band_limits[i + 1]
         bh = by2 - by1
         if bh < 40:
             continue
@@ -117,21 +119,24 @@ def analyze_template_structure(img_path):
             if not merged_v or vx - merged_v[-1] > 30:
                 merged_v.append(vx)
 
-        bands.append({
-            'y_top': int(by1),
-            'y_bot': int(by2),
-            'height': int(bh),
-            'v_dividers': [int(vx) for vx in merged_v],
-            'num_columns': len(merged_v) + 1
-        })
+        bands.append(
+            {
+                "y_top": int(by1),
+                "y_bot": int(by2),
+                "height": int(bh),
+                "v_dividers": [int(vx) for vx in merged_v],
+                "num_columns": len(merged_v) + 1,
+            }
+        )
 
     return {
-        'width': int(w),
-        'height': int(h),
-        'dividers': [int(d) for d in merged_dividers],
-        'frames': clean_frames,
-        'bands': bands
+        "width": int(w),
+        "height": int(h),
+        "dividers": [int(d) for d in merged_dividers],
+        "frames": clean_frames,
+        "bands": bands,
     }
+
 
 def main():
     os.makedirs("scratch/layout_details", exist_ok=True)
@@ -145,14 +150,17 @@ def main():
         print(f"=== Layout-{i} ({data['width']}x{data['height']}) ===")
         print(f"  Horizontal Dividers ({len(data['dividers'])}): {data['dividers']}")
         print(f"  Bands ({len(data['bands'])}):")
-        for b in data['bands']:
-            print(f"    y: {b['y_top']:4d}..{b['y_bot']:4d} (h={b['height']:3d}) -> {b['num_columns']} cols (dividers: {b['v_dividers']})")
+        for b in data["bands"]:
+            print(
+                f"    y: {b['y_top']:4d}..{b['y_bot']:4d} (h={b['height']:3d}) -> {b['num_columns']} cols (dividers: {b['v_dividers']})"
+            )
         print(f"  Frames ({len(data['frames'])}):")
-        for f in data['frames']:
+        for f in data["frames"]:
             print(f"    [x={f[0]:4d}, y={f[1]:4d}, w={f[2]:4d}, h={f[3]:4d}]")
 
     with open("scratch/layout_details/summary.json", "w") as f:
         json.dump(summary, f, indent=2)
+
 
 if __name__ == "__main__":
     main()

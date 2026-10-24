@@ -70,7 +70,27 @@ Run the application entry point:
 python main.py
 ```
 
-### 3. Built-In Issue Presets
+Or using **Poe the Poet**:
+
+```powershell
+poe run
+```
+
+### 3. Developer Commands (Poe the Poet & Ruff)
+
+Task automation is configured via `poethepoet` and `ruff`:
+
+| Command                 | Action                                        |
+|:------------------------|:----------------------------------------------|
+| `poe run` / `poe start` | Launch The Daily Prophet desktop application  |
+| `poe check`             | Run formatting check and linting in sequence  |
+| `poe format`            | Auto-format Python code using Ruff            |
+| `poe format-check`      | Check code formatting without writing changes |
+| `poe lint`              | Lint codebase for issues using Ruff           |
+| `poe lint-fix`          | Check and automatically fix safe lint issues  |
+| `poe test`              | Run functional GUI smoke and regression tests |
+
+### 4. Built-In Issue Presets
 
 Use the top ribbon commands to load pre-configured editions immediately:
 - **Hogwarts Issue**: The Hogwarts Community & Castle Dispatch edition with feature stories and student lore.

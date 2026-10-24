@@ -4,6 +4,7 @@ Word-inspired article writing workspace with live auto-fit gauge,
 one-click wizarding archetypes, authentic lorem ipsum generator,
 and collapsible styling drawers.
 """
+
 from __future__ import annotations
 import os
 import random
@@ -19,26 +20,26 @@ WIZARDING_LOREM_IPSUM = [
     (
         "DIAGON ALLEY POTION INGREDIENT SHORTAGE",
         "Apothecaries across Diagon Alley reported a critical deficit of powdered moonstone and boomslang skin at dawn. The Potions Guild attributes the supply disruption to unseasonable weather over the Scottish Highlands.",
-        "Ministry officials urge potion-makers not to seek black-market substitutes from Knockturn Alley, citing hazardous volatility in uncertified cauldrons."
+        "Ministry officials urge potion-makers not to seek black-market substitutes from Knockturn Alley, citing hazardous volatility in uncertified cauldrons.",
     ),
     (
         "MINISTRY OF MAGIC ISSUES WAND CARE ADVISORY",
         "The Department of Magical Equipment has released an urgent reminder regarding winter core maintenance. Wands containing dragon heartstring require regular polishing with crushed bicorn horn to prevent sporadic backfires during damp spells.",
-        "Auror Headquarters confirmed that faulty maintenance was responsible for several minor levitation accidents in central London this morning."
+        "Auror Headquarters confirmed that faulty maintenance was responsible for several minor levitation accidents in central London this morning.",
     ),
     (
         "CHUDLEY CANNONS CELEBRATE RARE VICTORY",
         "In a thrilling match that stunned Quidditch enthusiasts at Appleby, the Chudley Cannons secured their first win of the season after Seeker Galvin Gudgeon snatched the Golden Snitch in the ninety-second minute.",
-        "Manager Ragmar Dumbleton hailed the triumph as 'the beginning of an unstoppable orange epoch,' amidst exuberant fireworks outside the Leaky Cauldron."
+        "Manager Ragmar Dumbleton hailed the triumph as 'the beginning of an unstoppable orange epoch,' amidst exuberant fireworks outside the Leaky Cauldron.",
     ),
     (
         "OWL POST EXPEDITION DELAYED BY MOORLAND MIST",
-        "Dense magical fog across the moors has forced the Eeylops Owl Emporium courier corps to ground all heavy deliveries until noon. Letters bearing emergency hex-charms are prioritized via great horned owls equipped with enchanted navigational lanterns."
+        "Dense magical fog across the moors has forced the Eeylops Owl Emporium courier corps to ground all heavy deliveries until noon. Letters bearing emergency hex-charms are prioritized via great horned owls equipped with enchanted navigational lanterns.",
     ),
     (
         "GOBLIN LIAISON OFFICE CLARIFIES VAULT POLICIES",
-        "Gringotts Wizarding Bank has issued strict revisions regarding third-party vault inspections. Any wizard attempting entry without certified goblin blood-line verification will be subject to immediate detention by the subterranean security sphinxes."
-    )
+        "Gringotts Wizarding Bank has issued strict revisions regarding third-party vault inspections. Any wizard attempting entry without certified goblin blood-line verification will be subject to immediate detention by the subterranean security sphinxes.",
+    ),
 ]
 
 
@@ -46,11 +47,7 @@ class StoryComposer(ctk.CTkFrame):
     """Rich article composer panel replacing modal popups with in-place editing."""
 
     def __init__(
-        self,
-        master,
-        on_story_updated: Optional[Callable[[Story], None]] = None,
-        base_dir: str = ".",
-        **kwargs
+        self, master, on_story_updated: Optional[Callable[[Story], None]] = None, base_dir: str = ".", **kwargs
     ):
         super().__init__(master, fg_color=Theme.PANEL_BG, corner_radius=6, **kwargs)
         self.on_story_updated = on_story_updated
@@ -74,7 +71,7 @@ class StoryComposer(ctk.CTkFrame):
             image=IconManager.get_icon("pencil", size=13),
             compound="left",
             font=ctk.CTkFont(size=12, weight="bold"),
-            text_color=Theme.TEXT_PARCHMENT
+            text_color=Theme.TEXT_PARCHMENT,
         ).pack(side="left", padx=8)
 
         # Quick Archetype Presets Menu
@@ -86,14 +83,14 @@ class StoryComposer(ctk.CTkFrame):
                 "Ministry Official Decree",
                 "Rita Skeeter Exclusive",
                 "Quidditch Match Report",
-                "Hogwarts Notice & Snippet"
+                "Hogwarts Notice & Snippet",
             ],
             width=180,
             height=24,
             font=ctk.CTkFont(size=10),
             fg_color=Theme.BTN_NEUTRAL[0],
             button_color=Theme.BTN_NEUTRAL[1],
-            command=self._apply_archetype
+            command=self._apply_archetype,
         )
         self.archetype_menu.pack(side="left", padx=4)
 
@@ -108,7 +105,7 @@ class StoryComposer(ctk.CTkFrame):
             font=ctk.CTkFont(size=10),
             fg_color=Theme.BTN_SECONDARY[0],
             hover_color=Theme.BTN_SECONDARY[1],
-            command=self._insert_lorem_ipsum
+            command=self._insert_lorem_ipsum,
         ).pack(side="left", padx=4)
 
         # 2. Main Scrollable Editing Body
@@ -116,14 +113,20 @@ class StoryComposer(ctk.CTkFrame):
         scroll_container.pack(fill="both", expand=True, padx=4, pady=2)
 
         # Headline
-        ctk.CTkLabel(scroll_container, text="Headline (Main Title):", font=ctk.CTkFont(size=11, weight="bold")).pack(anchor="w", padx=6, pady=(4, 1))
+        ctk.CTkLabel(scroll_container, text="Headline (Main Title):", font=ctk.CTkFont(size=11, weight="bold")).pack(
+            anchor="w", padx=6, pady=(4, 1)
+        )
         self.headline_entry = ctk.CTkEntry(scroll_container, placeholder_text="e.g. MASS BREAKOUT FROM AZKABAN!")
         self.headline_entry.pack(fill="x", padx=6, pady=(0, 4))
         self.headline_entry.bind("<KeyRelease>", self._schedule_update)
 
         # Subheadline
-        ctk.CTkLabel(scroll_container, text="Subheadline / Kicker:", font=ctk.CTkFont(size=11)).pack(anchor="w", padx=6, pady=(2, 1))
-        self.subhead_entry = ctk.CTkEntry(scroll_container, placeholder_text="e.g. Ministry confirms Sirius Black at large")
+        ctk.CTkLabel(scroll_container, text="Subheadline / Kicker:", font=ctk.CTkFont(size=11)).pack(
+            anchor="w", padx=6, pady=(2, 1)
+        )
+        self.subhead_entry = ctk.CTkEntry(
+            scroll_container, placeholder_text="e.g. Ministry confirms Sirius Black at large"
+        )
         self.subhead_entry.pack(fill="x", padx=6, pady=(0, 4))
         self.subhead_entry.bind("<KeyRelease>", self._schedule_update)
 
@@ -149,7 +152,9 @@ class StoryComposer(ctk.CTkFrame):
         prio_strip = ctk.CTkFrame(scroll_container, fg_color=Theme.CARD_BG, corner_radius=4)
         prio_strip.pack(fill="x", padx=6, pady=4)
 
-        ctk.CTkLabel(prio_strip, text="Priority Role:", font=ctk.CTkFont(size=10, weight="bold")).pack(side="left", padx=8, pady=4)
+        ctk.CTkLabel(prio_strip, text="Priority Role:", font=ctk.CTkFont(size=10, weight="bold")).pack(
+            side="left", padx=8, pady=4
+        )
         self.priority_var = ctk.StringVar(value=StoryPriority.COVER.value)
         self.priority_menu = ctk.CTkOptionMenu(
             prio_strip,
@@ -158,16 +163,13 @@ class StoryComposer(ctk.CTkFrame):
             width=180,
             height=24,
             font=ctk.CTkFont(size=10),
-            command=self._on_field_changed
+            command=self._on_field_changed,
         )
         self.priority_menu.pack(side="left", padx=4, pady=4)
 
         # Auto-Fit & Word Count Indicator
         self.word_meter_lbl = ctk.CTkLabel(
-            prio_strip,
-            text="Words: 0 • Slot Fit: Optimal",
-            font=ctk.CTkFont(size=10),
-            text_color="#6bb377"
+            prio_strip, text="Words: 0 • Slot Fit: Optimal", font=ctk.CTkFont(size=10), text_color="#6bb377"
         )
         self.word_meter_lbl.pack(side="right", padx=10, pady=4)
 
@@ -185,13 +187,17 @@ class StoryComposer(ctk.CTkFrame):
         art_box = ctk.CTkFrame(scroll_container, fg_color=Theme.CARD_BG, corner_radius=4)
         art_box.pack(fill="x", padx=6, pady=4)
 
-        ctk.CTkLabel(art_box, text="Photograph & Character Cutout:", font=ctk.CTkFont(size=11, weight="bold")).pack(anchor="w", padx=8, pady=(6, 2))
+        ctk.CTkLabel(art_box, text="Photograph & Character Cutout:", font=ctk.CTkFont(size=11, weight="bold")).pack(
+            anchor="w", padx=8, pady=(6, 2)
+        )
 
         art_row = ctk.CTkFrame(art_box, fg_color="transparent")
         art_row.pack(fill="x", padx=8, pady=(0, 6))
 
         self.photo_path_var = ctk.StringVar()
-        self.photo_entry = ctk.CTkEntry(art_row, textvariable=self.photo_path_var, placeholder_text="No photo selected", height=24)
+        self.photo_entry = ctk.CTkEntry(
+            art_row, textvariable=self.photo_path_var, placeholder_text="No photo selected", height=24
+        )
         self.photo_entry.pack(side="left", fill="x", expand=True, padx=(0, 6))
 
         ctk.CTkButton(
@@ -202,7 +208,7 @@ class StoryComposer(ctk.CTkFrame):
             width=90,
             height=24,
             font=ctk.CTkFont(size=10),
-            command=self._open_library
+            command=self._open_library,
         ).pack(side="left", padx=2)
 
         ctk.CTkButton(
@@ -214,7 +220,7 @@ class StoryComposer(ctk.CTkFrame):
             height=24,
             font=ctk.CTkFont(size=10),
             fg_color=Theme.BTN_CONTROL[0],
-            command=self._clear_photo
+            command=self._clear_photo,
         ).pack(side="left", padx=2)
 
         # Caption
@@ -230,7 +236,7 @@ class StoryComposer(ctk.CTkFrame):
             fg_color=Theme.HEADER_BG,
             hover_color="#382e25",
             height=26,
-            command=self._toggle_accordion
+            command=self._toggle_accordion,
         )
         self.accordion_btn.pack(fill="x", padx=6, pady=(4, 2))
 
@@ -245,12 +251,14 @@ class StoryComposer(ctk.CTkFrame):
             variable=self.box_style_var,
             values=BoxStyle.choices(),
             width=200,
-            command=self._on_field_changed
+            command=self._on_field_changed,
         )
         self.box_style_menu.pack(anchor="w", padx=8, pady=(0, 6))
 
         ctk.CTkLabel(self.drawer_frame, text="Pull Quote (Callout text):").pack(anchor="w", padx=8, pady=(2, 2))
-        self.pull_quote_entry = ctk.CTkEntry(self.drawer_frame, placeholder_text="e.g. 'He could be anywhere, lurking in shadow.'")
+        self.pull_quote_entry = ctk.CTkEntry(
+            self.drawer_frame, placeholder_text="e.g. 'He could be anywhere, lurking in shadow.'"
+        )
         self.pull_quote_entry.pack(fill="x", padx=8, pady=(0, 8))
         self.pull_quote_entry.bind("<KeyRelease>", self._schedule_update)
 
@@ -273,7 +281,9 @@ class StoryComposer(ctk.CTkFrame):
         self.location_entry.delete(0, "end")
         self.location_entry.insert(0, story.location_tag)
 
-        self.priority_var.set(story.priority.value if isinstance(story.priority, StoryPriority) else str(story.priority))
+        self.priority_var.set(
+            story.priority.value if isinstance(story.priority, StoryPriority) else str(story.priority)
+        )
 
         self.body_text.delete("1.0", "end")
         self.body_text.insert("1.0", story.body)

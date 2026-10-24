@@ -3,11 +3,12 @@
 Follows the Chain of Responsibility, Strategy, and Semantic Versioning patterns
 to establish a clean, future-proof foundation for file format evolution.
 """
+
 from __future__ import annotations
 import copy
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Callable, TypeVar, Generic, Tuple, Union
+from typing import Dict, List, Callable, TypeVar, Generic, Tuple
 
 T = TypeVar("T", bound=Dict[str, object])
 
@@ -15,6 +16,7 @@ T = TypeVar("T", bound=Dict[str, object])
 @dataclass(frozen=True, order=True)
 class FormatVersion:
     """Semantic format version representation supporting clean comparisons (v1.0 < v1.1 < v2.0)."""
+
     major: int
     minor: int
     patch: int = 0
@@ -48,6 +50,7 @@ CURRENT_TEMPLATE_VERSION = TEMPLATE_FORMAT_V1
 
 class CompatibilitySeverity(str, Enum):
     """Severity classification for features downgraded across format versions."""
+
     WARNING = "warning"
     LOSSY = "lossy"
     BREAKING = "breaking"
@@ -60,6 +63,7 @@ class CompatibilitySeverity(str, Enum):
 @dataclass
 class CompatibilityIssue:
     """Represents a feature or field that cannot be natively preserved when downgrading."""
+
     feature_name: str
     description: str
     severity: CompatibilitySeverity = CompatibilitySeverity.WARNING
@@ -73,7 +77,7 @@ class SchemaMigrationStep(Generic[T]):
         from_version: FormatVersion,
         to_version: FormatVersion,
         transform_func: Callable[[T], T],
-        description: str = ""
+        description: str = "",
     ):
         self.from_version = from_version
         self.to_version = to_version
@@ -96,18 +100,17 @@ class SchemaMigrationPipeline(Generic[T]):
         self._steps: List[SchemaMigrationStep[T]] = []
 
     def register_step(
-        self,
-        from_version: FormatVersion,
-        to_version: FormatVersion,
-        description: str = ""
+        self, from_version: FormatVersion, to_version: FormatVersion, description: str = ""
     ) -> Callable[[Callable[[T], T]], Callable[[T], T]]:
         """Decorator to register a new forward migration step."""
+
         def decorator(func: Callable[[T], T]) -> Callable[[T], T]:
             step = SchemaMigrationStep(from_version, to_version, func, description)
             self._steps.append(step)
             # Maintain steps sorted by source version
             self._steps.sort(key=lambda s: s.from_version)
             return func
+
         return decorator
 
     def can_migrate(self, source_version: FormatVersion) -> bool:
@@ -153,7 +156,7 @@ class CompatibilityModeStrategy(Generic[T]):
         self,
         target_version: FormatVersion,
         analyzer: Callable[[T], List[CompatibilityIssue]],
-        transformer: Callable[[T], T]
+        transformer: Callable[[T], T],
     ):
         self.target_version = target_version
         self.analyzer = analyzer
@@ -196,11 +199,15 @@ class CompatibilityManager(Generic[T]):
 # ---------------------------------------------------------------------------
 
 # Project Pipeline (v1.0 is current; future versions register steps here)
-project_migration_pipeline: SchemaMigrationPipeline[Dict[str, object]] = SchemaMigrationPipeline(CURRENT_PROJECT_VERSION)
+project_migration_pipeline: SchemaMigrationPipeline[Dict[str, object]] = SchemaMigrationPipeline(
+    CURRENT_PROJECT_VERSION
+)
 project_compatibility_manager: CompatibilityManager[Dict[str, object]] = CompatibilityManager()
 ProjectMigrator = project_migration_pipeline
 
 # Template Pipeline (v1.0 is current; future versions register steps here)
-template_migration_pipeline: SchemaMigrationPipeline[Dict[str, object]] = SchemaMigrationPipeline(CURRENT_TEMPLATE_VERSION)
+template_migration_pipeline: SchemaMigrationPipeline[Dict[str, object]] = SchemaMigrationPipeline(
+    CURRENT_TEMPLATE_VERSION
+)
 template_compatibility_manager: CompatibilityManager[Dict[str, object]] = CompatibilityManager()
 TemplateMigrator = template_migration_pipeline

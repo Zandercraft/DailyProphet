@@ -1,4 +1,5 @@
 import sys
+
 sys.path.insert(0, ".")
 from daily_prophet.gui.main_window import MainWindow
 
@@ -25,11 +26,11 @@ print("Story added to page 2 ok.")
 
 # 4. Test composer typing / update
 story = app.edition.get_page(1).stories[0]
-app.center_composer.headline_entry.delete(0, 'end')
-app.center_composer.headline_entry.insert(0, 'TEST PROPHET HEADLINE')
+app.center_composer.headline_entry.delete(0, "end")
+app.center_composer.headline_entry.insert(0, "TEST PROPHET HEADLINE")
 app.center_composer._sync_to_story()
 app.update()
-assert story.headline == 'TEST PROPHET HEADLINE', f"Expected 'TEST PROPHET HEADLINE', got {story.headline}"
+assert story.headline == "TEST PROPHET HEADLINE", f"Expected 'TEST PROPHET HEADLINE', got {story.headline}"
 print("Composer sync ok.")
 
 # 5. Test detach preview to floating window and dock back

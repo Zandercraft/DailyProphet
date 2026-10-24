@@ -1,8 +1,10 @@
 """Test saving and loading the new .prophet custom project format."""
+
 import os
 import zipfile
 from daily_prophet.models import NewspaperEdition
 from daily_prophet.sample_data import get_original_hogwarts_edition
+
 
 def test_prophet_package():
     edition = get_original_hogwarts_edition(".")
@@ -41,6 +43,7 @@ def test_prophet_package():
             assert os.path.isfile(s.image_path), f"Extracted image missing: {s.image_path}"
 
     print("Successfully verified .prophet project package loading, media extraction, and layout restoration!")
+
 
 if __name__ == "__main__":
     test_prophet_package()

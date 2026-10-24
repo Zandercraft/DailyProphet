@@ -1,8 +1,10 @@
 """Analyze and inspect Additional Layouts 1 to 9."""
+
 import cv2
 import os
 import json
 import numpy as np
+
 
 def analyze_layout(img_path):
     img = cv2.imread(img_path)
@@ -31,14 +33,15 @@ def analyze_layout(img_path):
         x, y, bw, bh = cv2.boundingRect(c)
         area = bw * bh
         if bw > w * 0.1 and bh > h * 0.03 and area < w * h * 0.9:
-            roi = gray[y:y+bh, x:x+bw]
+            roi = gray[y : y + bh, x : x + bw]
             mean_lum = np.mean(roi)
             if mean_lum > 120:
-                cells.append({'rect': [int(x), int(y), int(bw), int(bh)], 'lum': float(mean_lum)})
+                cells.append({"rect": [int(x), int(y), int(bw), int(bh)], "lum": float(mean_lum)})
 
     # Sort cells top-down, left-to-right
-    cells = sorted(cells, key=lambda c: (c['rect'][1] // 50, c['rect'][0]))
-    return {'size': [w, h], 'cells_count': len(cells), 'cells': cells}
+    cells = sorted(cells, key=lambda c: (c["rect"][1] // 50, c["rect"][0]))
+    return {"size": [w, h], "cells_count": len(cells), "cells": cells}
+
 
 def main():
     results = {}
@@ -49,12 +52,13 @@ def main():
         res = analyze_layout(p)
         results[f"layout_{i}"] = res
         print(f"=== Layout-{i} ({res['size'][0]}x{res['size'][1]}): {res['cells_count']} cells ===")
-        for c in res['cells'][:6]:
-            r = c['rect']
+        for c in res["cells"][:6]:
+            r = c["rect"]
             print(f"   rect: [x={r[0]:4d}, y={r[1]:4d}, w={r[2]:4d}, h={r[3]:4d}]")
 
     with open("scratch/layouts_analysis.json", "w") as f:
         json.dump(results, f, indent=2)
+
 
 if __name__ == "__main__":
     main()

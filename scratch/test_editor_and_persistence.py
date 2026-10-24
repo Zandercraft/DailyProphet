@@ -1,6 +1,7 @@
 """Automated test suite verifying layout editor persistence, .prophet packaging,
 global template saving with .bak auto-backup, and custom template management.
 """
+
 import os
 import sys
 import json
@@ -13,9 +14,10 @@ from daily_prophet.generate_masks import (
     load_layout_definitions,
     save_global_layout_definitions,
     generate_wireframe_mask_for_layout,
-    SHIPPED_DEFAULTS_FILE
+    SHIPPED_DEFAULTS_FILE,
 )
 from daily_prophet.native_renderer import NativeBroadsheetRenderer
+
 
 def test_all():
     print("--- 1. Testing Shipped Defaults ---")
@@ -31,15 +33,20 @@ def test_all():
 
     # Custom slot override for layout_1 in this edition
     custom_slot_override = {
-        'page_file': 'assets/templates/pages/additional_layout_1.png',
-        'width': 1122,
-        'height': 1402,
-        'label': 'Custom Quibbler Layout 1',
-        'slots': [
-            {'id': 'custom_headline', 'type': 'headline', 'rect': [50, 50, 900, 100], 'label': 'Giant Quibbler Headline'}
-        ]
+        "page_file": "assets/templates/pages/additional_layout_1.png",
+        "width": 1122,
+        "height": 1402,
+        "label": "Custom Quibbler Layout 1",
+        "slots": [
+            {
+                "id": "custom_headline",
+                "type": "headline",
+                "rect": [50, 50, 900, 100],
+                "label": "Giant Quibbler Headline",
+            }
+        ],
     }
-    edition.custom_layouts['layout_1'] = custom_slot_override
+    edition.custom_layouts["layout_1"] = custom_slot_override
 
     test_pkg_path = "output/test_quibbler.prophet"
     os.makedirs("output", exist_ok=True)
@@ -49,9 +56,9 @@ def test_all():
 
     # Load back
     loaded_edition = NewspaperEdition.load_project_package(test_pkg_path)
-    assert 'layout_1' in loaded_edition.custom_layouts, "custom_layouts['layout_1'] not loaded"
-    assert loaded_edition.custom_layouts['layout_1']['label'] == 'Custom Quibbler Layout 1'
-    assert loaded_edition.custom_layouts['layout_1']['slots'][0]['id'] == 'custom_headline'
+    assert "layout_1" in loaded_edition.custom_layouts, "custom_layouts['layout_1'] not loaded"
+    assert loaded_edition.custom_layouts["layout_1"]["label"] == "Custom Quibbler Layout 1"
+    assert loaded_edition.custom_layouts["layout_1"]["slots"][0]["id"] == "custom_headline"
     print("[OK] Project package loaded back cleanly with exact custom slot override.")
 
     print("\n--- 3. Testing Native Renderer Uses Project Custom Layout Slots ---")
@@ -85,11 +92,14 @@ def test_all():
     print(f"[OK] .bak backup created successfully: {test_bak} matches pristine original state.")
 
     print("\n--- 5. Testing Wireframe Mask Generation for Layout ---")
-    mask_file = generate_wireframe_mask_for_layout("layout_1", custom_slot_override, masks_dir="output/test_masks", base_dir=".")
+    mask_file = generate_wireframe_mask_for_layout(
+        "layout_1", custom_slot_override, masks_dir="output/test_masks", base_dir="."
+    )
     assert mask_file is not None and os.path.isfile(mask_file), f"Mask file failed to generate: {mask_file}"
     print(f"[OK] Mask generated cleanly: {mask_file} ({os.path.getsize(mask_file)} bytes)")
 
     print("\nAll automated verification checks passed successfully!")
+
 
 if __name__ == "__main__":
     test_all()

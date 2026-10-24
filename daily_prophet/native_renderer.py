@@ -3,8 +3,9 @@
 Renders authentic, high-resolution Harry Potter broadsheet newspapers directly onto vintage wizarding parchment templates.
 Supports borderless PDF and high-res PNG/JPEG exports.
 """
+
 import os
-from typing import List, Tuple, Optional, Union
+from typing import List, Tuple, Optional
 from PIL import Image, ImageDraw, ImageFont
 
 from .models import NewspaperEdition, NewspaperPage, Story, StoryPriority
@@ -13,6 +14,7 @@ from .template_package import load_all_installed_templates
 
 class BroadsheetFontManager:
     """Loads and caches authentic wizarding fonts."""
+
     def __init__(self, base_dir: str):
         self.fonts_dir = os.path.join(base_dir, "assets", "fonts")
         self.cache = {}
@@ -47,7 +49,7 @@ class BroadsheetFontManager:
             system_fallbacks = [
                 r"C:\Windows\Fonts\georgia.ttf",
                 r"C:\Windows\Fonts\times.ttf",
-                r"C:\Windows\Fonts\arial.ttf"
+                r"C:\Windows\Fonts\arial.ttf",
             ]
             for sys_p in system_fallbacks:
                 if os.path.isfile(sys_p):
@@ -64,7 +66,9 @@ class BroadsheetFontManager:
         return font
 
 
-def _wrap_text_to_width(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont, max_width: int) -> List[str]:
+def _wrap_text_to_width(
+    draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont, max_width: int
+) -> List[str]:
     """Wraps text so each line fits within max_width pixels."""
     if not text:
         return []
@@ -87,7 +91,15 @@ def _wrap_text_to_width(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.Fr
     return lines
 
 
-def _draw_justified_line(draw: ImageDraw.ImageDraw, line: str, font: ImageFont.FreeTypeFont, x: int, y: int, max_width: int, fill: Tuple[int, int, int]):
+def _draw_justified_line(
+    draw: ImageDraw.ImageDraw,
+    line: str,
+    font: ImageFont.FreeTypeFont,
+    x: int,
+    y: int,
+    max_width: int,
+    fill: Tuple[int, int, int],
+):
     """Draws a single line of text with inter-word justification."""
     words = line.split()
     if len(words) <= 1:
@@ -122,7 +134,7 @@ def _draw_story_paragraphs(
     line_h: int,
     fill: Tuple[int, int, int],
     has_drop_cap: bool = False,
-    avoid_rect: Optional[Tuple[int, int, int, int]] = None  # (ax, ay, aw, ah)
+    avoid_rect: Optional[Tuple[int, int, int, int]] = None,  # (ax, ay, aw, ah)
 ) -> int:
     """Draws justified paragraphs, wrapping around an avoid_rect (inline photo or cutout)."""
     cur_y = y
@@ -217,11 +229,23 @@ class NativeBroadsheetRenderer:
         self.base_dir = os.path.abspath(base_dir)
         self.fonts = BroadsheetFontManager(self.base_dir)
 
-    def render(self, edition: NewspaperEdition, template_id: str = "layout_1", scale: float = 1.0, page: Optional[NewspaperPage] = None) -> Image.Image:
+    def render(
+        self,
+        edition: NewspaperEdition,
+        template_id: str = "layout_1",
+        scale: float = 1.0,
+        page: Optional[NewspaperPage] = None,
+    ) -> Image.Image:
         """Renders content directly into the authentic vintage newspaper layout template."""
         return self.render_slot_layout(edition, template_id=template_id, scale=scale, page=page)
 
-    def render_template(self, edition: NewspaperEdition, template_id: str = "layout_1", scale: float = 1.0, page: Optional[NewspaperPage] = None) -> Image.Image:
+    def render_template(
+        self,
+        edition: NewspaperEdition,
+        template_id: str = "layout_1",
+        scale: float = 1.0,
+        page: Optional[NewspaperPage] = None,
+    ) -> Image.Image:
         """Alias for render_slot_layout."""
         return self.render_slot_layout(edition, template_id=template_id, scale=scale, page=page)
 
@@ -235,10 +259,18 @@ class NativeBroadsheetRenderer:
     def render_all_pages(self, edition: NewspaperEdition, scale: float = 1.0) -> List[Image.Image]:
         """Renders every page of the publication in order into a list of PIL Images."""
         if hasattr(edition, "pages") and edition.pages:
-            return [self.render_slot_layout(edition, template_id=p.layout_id, scale=scale, page=p) for p in edition.pages]
+            return [
+                self.render_slot_layout(edition, template_id=p.layout_id, scale=scale, page=p) for p in edition.pages
+            ]
         return [self.render_slot_layout(edition, template_id=edition.selected_layout, scale=scale)]
 
-    def render_slot_layout(self, edition: NewspaperEdition, template_id: str = "layout_1", scale: float = 1.0, page: Optional[NewspaperPage] = None) -> Image.Image:
+    def render_slot_layout(
+        self,
+        edition: NewspaperEdition,
+        template_id: str = "layout_1",
+        scale: float = 1.0,
+        page: Optional[NewspaperPage] = None,
+    ) -> Image.Image:
         """Renders content dynamically into any installed .prophettemplate layout."""
         all_layouts = load_all_installed_templates(base_dir=self.base_dir)
 
@@ -301,7 +333,11 @@ class NativeBroadsheetRenderer:
         cover_stories = [s for s in page_stories if s.priority == StoryPriority.COVER.value]
         major_stories = [s for s in page_stories if s.priority == StoryPriority.MAJOR.value]
 
-        cover = cover_stories[0] if cover_stories else (page_stories[0] if page_stories else Story(headline="HOGWARTS NEWS"))
+        cover = (
+            cover_stories[0]
+            if cover_stories
+            else (page_stories[0] if page_stories else Story(headline="HOGWARTS NEWS"))
+        )
         major = major_stories[0] if major_stories else (page_stories[1] if len(page_stories) > 1 else cover)
         other_stories = [s for s in page_stories if s != cover and s != major]
         if not other_stories:
@@ -312,7 +348,7 @@ class NativeBroadsheetRenderer:
         lore_items = [
             (edition.lore_title_1, edition.lore_body_1),
             (edition.lore_title_2, edition.lore_body_2),
-            ("WORDS OF WISDOM", f'"{edition.quote_text}" — {edition.quote_author}')
+            ("WORDS OF WISDOM", f'"{edition.quote_text}" — {edition.quote_author}'),
         ]
 
         for slot in layout_def.get("slots", []):
@@ -334,15 +370,45 @@ class NativeBroadsheetRenderer:
             elif stype == "ear_box":
                 draw.rectangle([rx, ry, rx + rw, ry + rh], outline=border_ink, width=S(1))
                 if "left" in sid:
-                    draw.text((rx + S(6), ry + S(4)), edition.edition_day.upper(), font=self.fonts.get_font("headline", S(9)), fill=ink_black)
-                    draw.text((rx + S(6), ry + S(18)), edition.edition_date.upper(), font=self.fonts.get_font("subhead", S(10)), fill=ink_black)
+                    draw.text(
+                        (rx + S(6), ry + S(4)),
+                        edition.edition_day.upper(),
+                        font=self.fonts.get_font("headline", S(9)),
+                        fill=ink_black,
+                    )
+                    draw.text(
+                        (rx + S(6), ry + S(18)),
+                        edition.edition_date.upper(),
+                        font=self.fonts.get_font("subhead", S(10)),
+                        fill=ink_black,
+                    )
                     draw.line([rx + S(6), ry + S(34), rx + rw - S(6), ry + S(34)], fill=border_ink, width=S(1))
-                    draw.text((rx + S(6), ry + S(38)), edition.issue_number.upper(), font=self.fonts.get_font("headline", S(8)), fill=ink_muted)
+                    draw.text(
+                        (rx + S(6), ry + S(38)),
+                        edition.issue_number.upper(),
+                        font=self.fonts.get_font("headline", S(8)),
+                        fill=ink_muted,
+                    )
                 else:
-                    draw.text((rx + S(6), ry + S(4)), "PRICE: " + edition.price.upper(), font=self.fonts.get_font("headline", S(9)), fill=accent_red)
-                    draw.text((rx + S(6), ry + S(18)), "CASTLE WEATHER", font=self.fonts.get_font("headline", S(8)), fill=ink_black)
+                    draw.text(
+                        (rx + S(6), ry + S(4)),
+                        "PRICE: " + edition.price.upper(),
+                        font=self.fonts.get_font("headline", S(9)),
+                        fill=accent_red,
+                    )
+                    draw.text(
+                        (rx + S(6), ry + S(18)),
+                        "CASTLE WEATHER",
+                        font=self.fonts.get_font("headline", S(8)),
+                        fill=ink_black,
+                    )
                     draw.line([rx + S(6), ry + S(30), rx + rw - S(6), ry + S(30)], fill=border_ink, width=S(1))
-                    draw.text((rx + S(6), ry + S(35)), edition.weather[:24], font=self.fonts.get_font("body_italic", S(8)), fill=ink_dark)
+                    draw.text(
+                        (rx + S(6), ry + S(35)),
+                        edition.weather[:24],
+                        font=self.fonts.get_font("body_italic", S(8)),
+                        fill=ink_dark,
+                    )
 
             elif stype == "slogan":
                 s_font = self.fonts.get_font("headline", min(S(10), max(S(7), int(rh * 0.45))))
@@ -361,8 +427,18 @@ class NativeBroadsheetRenderer:
                 draw.text((rx + max(0, (rw - tkw) // 2), ry + S(4)), tk_text, font=tk_font, fill=ink_black)
 
             elif stype in ["headline", "subheadline"]:
-                target_story = cover if "lead" in sid or "main" in sid or "hero" in sid else (major if "feature" in sid or "top" in sid else other_stories[story_cursor % len(other_stories)])
-                text_str = target_story.headline.upper() if stype == "headline" else (target_story.subheadline or target_story.headline)
+                target_story = (
+                    cover
+                    if "lead" in sid or "main" in sid or "hero" in sid
+                    else (
+                        major if "feature" in sid or "top" in sid else other_stories[story_cursor % len(other_stories)]
+                    )
+                )
+                text_str = (
+                    target_story.headline.upper()
+                    if stype == "headline"
+                    else (target_story.subheadline or target_story.headline)
+                )
                 font_type = "headline" if stype == "headline" else "subhead_italic"
                 font_size = min(S(20), max(S(10), int(rh * 0.42)))
                 h_font = self.fonts.get_font(font_type, font_size)
@@ -373,8 +449,16 @@ class NativeBroadsheetRenderer:
                     cy += font_size + S(4)
 
             elif stype == "photo":
-                target_story = cover if "lead" in sid or "hero" in sid or "top" in sid else (major if "feature" in sid else other_stories[story_cursor % len(other_stories)])
-                img_path = target_story.image_path if target_story.image_path and os.path.exists(target_story.image_path) else None
+                target_story = (
+                    cover
+                    if "lead" in sid or "hero" in sid or "top" in sid
+                    else (major if "feature" in sid else other_stories[story_cursor % len(other_stories)])
+                )
+                img_path = (
+                    target_story.image_path
+                    if target_story.image_path and os.path.exists(target_story.image_path)
+                    else None
+                )
                 if img_path:
                     try:
                         with Image.open(img_path) as p_img:
@@ -387,7 +471,9 @@ class NativeBroadsheetRenderer:
                     draw.rectangle([rx, ry, rx + rw, ry + rh], outline=border_ink, width=S(1))
 
             elif stype in ["body", "column"]:
-                target_story = cover if "lead" in sid or "hero" in sid else other_stories[story_cursor % len(other_stories)]
+                target_story = (
+                    cover if "lead" in sid or "hero" in sid else other_stories[story_cursor % len(other_stories)]
+                )
                 if stype == "column":
                     story_cursor += 1
                 paras = [p.strip() for p in target_story.body.split("\n\n") if p.strip()]
@@ -406,7 +492,7 @@ class NativeBroadsheetRenderer:
                     max_h=rh,
                     line_h=S(13),
                     fill=ink_black,
-                    has_drop_cap=True
+                    has_drop_cap=True,
                 )
 
             elif stype == "quote":
@@ -418,7 +504,12 @@ class NativeBroadsheetRenderer:
                 for ql in qlines:
                     draw.text((rx + S(8), qy), ql, font=q_font, fill=accent_red)
                     qy += S(14)
-                draw.text((rx + S(8), qy + S(4)), f"— {edition.quote_author.upper()}", font=self.fonts.get_font("headline", S(8.5)), fill=ink_dark)
+                draw.text(
+                    (rx + S(8), qy + S(4)),
+                    f"— {edition.quote_author.upper()}",
+                    font=self.fonts.get_font("headline", S(8.5)),
+                    fill=ink_dark,
+                )
 
             elif stype == "lore":
                 ltitle, lbody = lore_items[lore_cursor % len(lore_items)]
@@ -437,7 +528,7 @@ class NativeBroadsheetRenderer:
                     max_h=rh - S(20),
                     line_h=S(12),
                     fill=ink_black,
-                    has_drop_cap=False
+                    has_drop_cap=False,
                 )
 
             elif stype == "footer":
@@ -450,7 +541,9 @@ class NativeBroadsheetRenderer:
 
         return canvas
 
-    def render_multipage(self, edition: NewspaperEdition, template_ids: List[str], scale: float = 1.0) -> List[Image.Image]:
+    def render_multipage(
+        self, edition: NewspaperEdition, template_ids: List[str], scale: float = 1.0
+    ) -> List[Image.Image]:
         """Renders a sequence of layout templates as a multi-page publication."""
         pages = []
         for tid in template_ids:
@@ -459,10 +552,7 @@ class NativeBroadsheetRenderer:
 
 
 def export_native_image(
-    edition: NewspaperEdition,
-    output_path: str,
-    template_id: str = "layout_1",
-    scale: float = 2.0
+    edition: NewspaperEdition, output_path: str, template_id: str = "layout_1", scale: float = 2.0
 ) -> Tuple[bool, str]:
     """Renders and exports the newspaper layout to high-resolution PNG or JPG."""
     try:
@@ -484,10 +574,7 @@ def export_native_image(
 
 
 def export_native_pdf(
-    edition: NewspaperEdition,
-    output_path: str,
-    template_ids: str | List[str] = "layout_1",
-    scale: float = 2.0
+    edition: NewspaperEdition, output_path: str, template_ids: str | List[str] = "layout_1", scale: float = 2.0
 ) -> Tuple[bool, str]:
     """Renders and exports the newspaper layout directly to a high-resolution borderless PDF."""
     try:
@@ -507,11 +594,7 @@ def export_native_pdf(
             rendered_pages[0].save(abs_path, "PDF", resolution=150.0 * scale)
         else:
             rendered_pages[0].save(
-                abs_path,
-                "PDF",
-                resolution=150.0 * scale,
-                save_all=True,
-                append_images=rendered_pages[1:]
+                abs_path, "PDF", resolution=150.0 * scale, save_all=True, append_images=rendered_pages[1:]
             )
 
         return True, f"Successfully exported {len(rendered_pages)}-page publication to: {abs_path}"

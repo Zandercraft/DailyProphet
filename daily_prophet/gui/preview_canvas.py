@@ -3,6 +3,7 @@
 Renders real-time broadsheet previews with bi-directional slot highlighting,
 smooth zooming, panning, and support for dual-monitor detachment.
 """
+
 from __future__ import annotations
 import tkinter as tk
 from typing import Optional, Callable, Dict, List
@@ -25,7 +26,7 @@ class BroadsheetPreviewCanvas(ctk.CTkFrame):
         on_page_changed: Optional[Callable[[int], None]] = None,
         on_detach_requested: Optional[Callable[[], None]] = None,
         is_detached: bool = False,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(master, fg_color=Theme.CANVAS_BG, corner_radius=6, **kwargs)
         self.edition = edition
@@ -60,7 +61,7 @@ class BroadsheetPreviewCanvas(ctk.CTkFrame):
             image=IconManager.get_icon("eye", size=13),
             compound="left",
             font=ctk.CTkFont(size=11, weight="bold"),
-            text_color=Theme.TEXT_PARCHMENT
+            text_color=Theme.TEXT_PARCHMENT,
         )
         self.title_lbl.pack(side="left", padx=8)
 
@@ -78,7 +79,7 @@ class BroadsheetPreviewCanvas(ctk.CTkFrame):
                 font=ctk.CTkFont(size=10, weight="bold"),
                 fg_color=Theme.BTN_NEUTRAL[0],
                 hover_color=Theme.BTN_NEUTRAL[1],
-                command=self.on_detach_requested
+                command=self.on_detach_requested,
             )
             self.detach_btn.pack(side="right", padx=6)
 
@@ -94,7 +95,7 @@ class BroadsheetPreviewCanvas(ctk.CTkFrame):
             font=ctk.CTkFont(size=10),
             fg_color=Theme.BTN_SECONDARY[0],
             button_color=Theme.BTN_SECONDARY[1],
-            command=self._on_zoom_changed
+            command=self._on_zoom_changed,
         )
         self.zoom_menu.pack(side="right", padx=2)
         self.zoom_menu.set("Fit to Screen")
@@ -103,12 +104,7 @@ class BroadsheetPreviewCanvas(ctk.CTkFrame):
         canvas_container = ctk.CTkFrame(self, fg_color=Theme.CANVAS_BG)
         canvas_container.pack(fill="both", expand=True, padx=4, pady=2)
 
-        self.canvas = tk.Canvas(
-            canvas_container,
-            bg=Theme.CANVAS_BG,
-            highlightthickness=0,
-            cursor="hand2"
-        )
+        self.canvas = tk.Canvas(canvas_container, bg=Theme.CANVAS_BG, highlightthickness=0, cursor="hand2")
         self.v_scroll = ctk.CTkScrollbar(canvas_container, orientation="vertical", command=self.canvas.yview)
         self.h_scroll = ctk.CTkScrollbar(canvas_container, orientation="horizontal", command=self.canvas.xview)
         self.canvas.configure(xscrollcommand=self.h_scroll.set, yscrollcommand=self.v_scroll.set)
@@ -132,15 +128,12 @@ class BroadsheetPreviewCanvas(ctk.CTkFrame):
             height=22,
             fg_color=Theme.BTN_CONTROL[0],
             hover_color=Theme.BTN_CONTROL[1],
-            command=self._prev_page
+            command=self._prev_page,
         )
         self.prev_btn.pack(side="left", padx=6, pady=4)
 
         self.page_status_lbl = ctk.CTkLabel(
-            flip_bar,
-            text="Page 1 of 1",
-            font=ctk.CTkFont(size=11, weight="bold"),
-            text_color=Theme.TEXT_PARCHMENT
+            flip_bar, text="Page 1 of 1", font=ctk.CTkFont(size=11, weight="bold"), text_color=Theme.TEXT_PARCHMENT
         )
         self.page_status_lbl.pack(side="left", padx=6)
 
@@ -152,15 +145,12 @@ class BroadsheetPreviewCanvas(ctk.CTkFrame):
             height=22,
             fg_color=Theme.BTN_CONTROL[0],
             hover_color=Theme.BTN_CONTROL[1],
-            command=self._next_page
+            command=self._next_page,
         )
         self.next_btn.pack(side="left", padx=6, pady=4)
 
         self.page_title_lbl = ctk.CTkLabel(
-            flip_bar,
-            text="Front Page",
-            font=ctk.CTkFont(size=11, slant="italic"),
-            text_color=Theme.TEXT_MUTED
+            flip_bar, text="Front Page", font=ctk.CTkFont(size=11, slant="italic"), text_color=Theme.TEXT_MUTED
         )
         self.page_title_lbl.pack(side="right", padx=10)
 
@@ -190,6 +180,7 @@ class BroadsheetPreviewCanvas(ctk.CTkFrame):
 
         # Load layout definition to know slot locations
         from ..template_package import load_all_installed_templates
+
         all_defs = load_all_installed_templates(self.renderer.base_dir)
         layout_def = {}
         if hasattr(self.edition, "custom_layouts") and layout_id in self.edition.custom_layouts:
@@ -201,10 +192,7 @@ class BroadsheetPreviewCanvas(ctk.CTkFrame):
         # Render native broadsheet image at high resolution
         try:
             self._rendered_pil = self.renderer.render_slot_layout(
-                self.edition,
-                template_id=layout_id,
-                scale=1.5,
-                page=page
+                self.edition, template_id=layout_id, scale=1.5, page=page
             )
         except Exception:
             self._rendered_pil = None
@@ -306,11 +294,7 @@ class BroadsheetPreviewCanvas(ctk.CTkFrame):
 
                 # Draw glowing parchment gold highlight rectangle
                 self.canvas.create_rectangle(
-                    sx1, sy1, sx2, sy2,
-                    outline="#e5c158",
-                    width=3,
-                    dash=(6, 3),
-                    tags="highlight"
+                    sx1, sy1, sx2, sy2, outline="#e5c158", width=3, dash=(6, 3), tags="highlight"
                 )
                 break
 
@@ -355,7 +339,7 @@ class PreviewToplevelWindow(ctk.CTkToplevel):
             on_slot_clicked=on_slot_clicked,
             on_page_changed=on_page_changed,
             on_detach_requested=self._on_dock_pressed,
-            is_detached=True
+            is_detached=True,
         )
         self.preview_canvas.pack(fill="both", expand=True, padx=6, pady=6)
 

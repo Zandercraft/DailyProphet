@@ -6,6 +6,7 @@ Each .prophettemplate is a self-contained archive (ZIP) containing:
 - page.png: High-resolution authentic background parchment artwork
 - wireframe.png: Visual wireframe mask of all content slots
 """
+
 import os
 import shutil
 import json
@@ -38,7 +39,7 @@ def create_template_package(
     output_path: str,
     target_version: str = CURRENT_TEMPLATE_VERSION,
     is_bundled: Optional[bool] = None,
-    base_dir: str = "."
+    base_dir: str = ".",
 ) -> str:
     """Packages a single layout, its background artwork, and wireframe mask into a .prophettemplate file."""
     if not output_path.endswith(".prophettemplate"):
@@ -70,7 +71,7 @@ def create_template_package(
         "label": layout_data.get("label", layout_id),
         "bundled": bool(is_bundled),
         "width": layout_data.get("width", 1122),
-        "height": layout_data.get("height", 1402)
+        "height": layout_data.get("height", 1402),
     }
 
     # Locate or generate wireframe mask
@@ -78,6 +79,7 @@ def create_template_package(
     mask_abs = os.path.join(base_dir, mask_rel) if not os.path.isabs(mask_rel) else mask_rel
     if not os.path.isfile(mask_abs):
         from .generate_masks import generate_wireframe_mask_for_layout
+
         mask_abs = generate_wireframe_mask_for_layout(layout_id, layout_data, base_dir=base_dir)
 
     with zipfile.ZipFile(output_path, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -93,9 +95,7 @@ def create_template_package(
 
 
 def load_template_package(
-    file_path: str,
-    cache_base_dir: Optional[str] = None,
-    base_dir: str = "."
+    file_path: str, cache_base_dir: Optional[str] = None, base_dir: str = "."
 ) -> Dict[str, object]:
     """Unpacks a .prophettemplate file into the local template cache and returns the layout definition dict."""
     target_cache = cache_base_dir or os.path.join(base_dir, TEMPLATES_CACHE_DIR)
@@ -120,7 +120,18 @@ def load_template_package(
 
         for member in zf.namelist():
             if member in ["page.png", "wireframe.png"]:
-                zf.extract(member, extract_dir)
+                dest_path = os.path.join(extract_dir, member)
+                try:
+                    if not os.path.exists(dest_path):
+                        zf.extract(member, extract_dir)
+                    else:
+                        # Avoid file-in-use overwrite conflicts on Windows
+                        data_bytes = zf.read(member)
+                        if os.path.getsize(dest_path) != len(data_bytes):
+                            with open(dest_path, "wb") as f:
+                                f.write(data_bytes)
+                except Exception:
+                    pass
 
         # Detect version and run through migration pipeline
         raw_ver = "1.0"
@@ -161,9 +172,7 @@ def load_template_package(
 
 
 def load_all_installed_templates(
-    installed_dir: Optional[str] = None,
-    shipped_dir: Optional[str] = None,
-    base_dir: str = "."
+    installed_dir: Optional[str] = None, shipped_dir: Optional[str] = None, base_dir: str = "."
 ) -> Dict[str, Dict[str, object]]:
     """Loads all .prophettemplate files from the installed directory, bootstrapping from shipped source if empty."""
     inst_dir = installed_dir or os.path.join(base_dir, INSTALLED_TEMPLATES_DIR)
@@ -194,10 +203,7 @@ def load_all_installed_templates(
 
 
 def save_installed_template(
-    layout_id: str,
-    layout_data: Dict[str, object],
-    installed_dir: Optional[str] = None,
-    base_dir: str = "."
+    layout_id: str, layout_data: Dict[str, object], installed_dir: Optional[str] = None, base_dir: str = "."
 ) -> str:
     """Saves a layout into its own .prophettemplate file.
     Creates a .bak copy upon first modification of an existing template.
@@ -220,11 +226,7 @@ def save_installed_template(
     return target_file
 
 
-def delete_installed_template(
-    layout_id: str,
-    installed_dir: Optional[str] = None,
-    base_dir: str = "."
-) -> bool:
+def delete_installed_template(layout_id: str, installed_dir: Optional[str] = None, base_dir: str = ".") -> bool:
     """Deletes a custom .prophettemplate file.
     Refuses to delete factory bundled templates.
     """
@@ -267,10 +269,7 @@ def delete_installed_template(
 
 
 def restore_template_from_shipped_or_backup(
-    layout_id: str,
-    installed_dir: Optional[str] = None,
-    shipped_dir: Optional[str] = None,
-    base_dir: str = "."
+    layout_id: str, installed_dir: Optional[str] = None, shipped_dir: Optional[str] = None, base_dir: str = "."
 ) -> Optional[Dict[str, object]]:
     """Restores a single template from its .bak backup or from factory shipped defaults."""
     inst_dir = installed_dir or os.path.join(base_dir, INSTALLED_TEMPLATES_DIR)

@@ -1,4 +1,5 @@
 """Generates authentic Harry Potter style sample graphics for The Daily Prophet."""
+
 import os
 import math
 import random
@@ -53,7 +54,7 @@ def _generate_sirius_image(path: str):
     # Sepia backdrop with height measurement lines
     for y in range(80, 520, 35):
         draw.line([(60, y), (540, y)], fill=(205, 195, 175, 160), width=1)
-        draw.text((70, y - 10), f"{(600 - y)//10}'", fill=(170, 160, 140, 200))
+        draw.text((70, y - 10), f"{(600 - y) // 10}'", fill=(170, 160, 140, 200))
 
     # Silhouette / Portrait sketch
     # Shoulders
@@ -113,7 +114,9 @@ def _generate_triwizard_image(path: str):
     draw.polygon([(260, 330), (340, 330), (370, 380), (230, 380)], fill=(75, 60, 45, 255))
     draw.rectangle([285, 230, 315, 340], fill=(85, 70, 50, 255))
     # Cup bowl
-    draw.polygon([(210, 120), (390, 120), (350, 240), (250, 240)], fill=(110, 90, 60, 255), outline=(50, 40, 30, 255), width=2)
+    draw.polygon(
+        [(210, 120), (390, 120), (350, 240), (250, 240)], fill=(110, 90, 60, 255), outline=(50, 40, 30, 255), width=2
+    )
     # Handles
     draw.arc([160, 130, 230, 230], start=90, end=270, fill=(60, 50, 40, 255), width=8)
     draw.arc([370, 130, 440, 230], start=-90, end=90, fill=(60, 50, 40, 255), width=8)
@@ -167,9 +170,19 @@ def _generate_quidditch_image(path: str):
 
     cx, cy = 300, 200
     # Left wing
-    draw.polygon([(cx - 30, cy - 10), (cx - 180, cy - 90), (cx - 240, cy - 70), (cx - 120, cy + 20), (cx - 30, cy)], fill=(130, 115, 90, 220), outline=(60, 50, 40, 255), width=2)
+    draw.polygon(
+        [(cx - 30, cy - 10), (cx - 180, cy - 90), (cx - 240, cy - 70), (cx - 120, cy + 20), (cx - 30, cy)],
+        fill=(130, 115, 90, 220),
+        outline=(60, 50, 40, 255),
+        width=2,
+    )
     # Right wing
-    draw.polygon([(cx + 30, cy - 10), (cx + 180, cy - 90), (cx + 240, cy - 70), (cx + 120, cy + 20), (cx + 30, cy)], fill=(130, 115, 90, 220), outline=(60, 50, 40, 255), width=2)
+    draw.polygon(
+        [(cx + 30, cy - 10), (cx + 180, cy - 90), (cx + 240, cy - 70), (cx + 120, cy + 20), (cx + 30, cy)],
+        fill=(130, 115, 90, 220),
+        outline=(60, 50, 40, 255),
+        width=2,
+    )
 
     # Ball
     draw.ellipse([cx - 45, cy - 45, cx + 45, cy + 45], fill=(210, 175, 75, 255), outline=(70, 55, 35, 255), width=3)

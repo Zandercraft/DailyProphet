@@ -1,4 +1,5 @@
 """Object-oriented domain models for layout definitions, slots, and visual styling."""
+
 from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
@@ -7,6 +8,7 @@ from typing import List, Dict, Optional, Tuple, Union
 
 class SlotType(str, Enum):
     """Enumeration of layout slot content roles across Daily Prophet newspapers."""
+
     TITLE = "title"
     BANNER = "banner"
     EAR_BOX = "ear_box"
@@ -28,7 +30,7 @@ class SlotType(str, Enum):
         return [member.value for member in cls]
 
     @classmethod
-    def from_string(cls, val: Union[str, SlotType, object]) -> SlotType:
+    def from_string(cls, val: str | SlotType | object) -> SlotType:
         """Safely parses a string or enum to SlotType, defaulting to BODY."""
         if isinstance(val, SlotType):
             return val
@@ -62,41 +64,41 @@ class SlotType(str, Enum):
     def ui_colors(self) -> Tuple[str, str]:
         """Returns (fill_hex, outline_hex) for canvas and interactive GUI editing."""
         palette = {
-            SlotType.HEADLINE: ('#8B1E1E', '#FF4D4D'),       # Deep Crimson
-            SlotType.SUBHEADLINE: ('#B85D19', '#FFA059'),    # Rust Amber
-            SlotType.PHOTO: ('#1E5631', '#4DFF88'),          # Forest Emerald Green
-            SlotType.BODY: ('#1B365D', '#66A3FF'),           # Ink Navy
-            SlotType.COLUMN: ('#2B4C7E', '#7DB4FF'),         # Column Blue
-            SlotType.TITLE: ('#4A235A', '#D980FA'),          # Royal Purple
-            SlotType.EAR_BOX: ('#641E1E', '#FF7070'),        # Dark Maroon
-            SlotType.QUOTE: ('#996515', '#FFD159'),          # Amber Gold
-            SlotType.LORE: ('#5C3566', '#E284F7'),           # Plum Lore
-            SlotType.TICKER: ('#5A461E', '#E6C687'),         # Bronze
-            SlotType.BANNER: ('#28283C', '#A8A8D0'),         # Dark Slate
-            SlotType.SLOGAN: ('#333333', '#A0A0A0'),         # Slate Gray
-            SlotType.DIVIDER: ('#4F4F4F', '#CCCCCC'),        # Divider Gray
-            SlotType.FOOTER: ('#282828', '#B0B0B0'),         # Charcoal
+            SlotType.HEADLINE: ("#8B1E1E", "#FF4D4D"),  # Deep Crimson
+            SlotType.SUBHEADLINE: ("#B85D19", "#FFA059"),  # Rust Amber
+            SlotType.PHOTO: ("#1E5631", "#4DFF88"),  # Forest Emerald Green
+            SlotType.BODY: ("#1B365D", "#66A3FF"),  # Ink Navy
+            SlotType.COLUMN: ("#2B4C7E", "#7DB4FF"),  # Column Blue
+            SlotType.TITLE: ("#4A235A", "#D980FA"),  # Royal Purple
+            SlotType.EAR_BOX: ("#641E1E", "#FF7070"),  # Dark Maroon
+            SlotType.QUOTE: ("#996515", "#FFD159"),  # Amber Gold
+            SlotType.LORE: ("#5C3566", "#E284F7"),  # Plum Lore
+            SlotType.TICKER: ("#5A461E", "#E6C687"),  # Bronze
+            SlotType.BANNER: ("#28283C", "#A8A8D0"),  # Dark Slate
+            SlotType.SLOGAN: ("#333333", "#A0A0A0"),  # Slate Gray
+            SlotType.DIVIDER: ("#4F4F4F", "#CCCCCC"),  # Divider Gray
+            SlotType.FOOTER: ("#282828", "#B0B0B0"),  # Charcoal
         }
-        return palette.get(self, ('#333333', '#999999'))
+        return palette.get(self, ("#333333", "#999999"))
 
     @property
     def mask_fill(self) -> Tuple[int, int, int, int]:
         """Returns (R, G, B, A) fill color for PIL wireframe mask generation."""
         fills = {
-            SlotType.TITLE: (74, 35, 90, 160),         # Royal Purple
-            SlotType.BANNER: (40, 40, 60, 140),       # Dark Slate
-            SlotType.EAR_BOX: (100, 40, 40, 140),     # Dark Maroon
-            SlotType.SLOGAN: (50, 50, 50, 120),       # Charcoal
-            SlotType.TICKER: (90, 70, 30, 130),       # Bronze
-            SlotType.HEADLINE: (139, 30, 30, 170),     # Crimson Red
+            SlotType.TITLE: (74, 35, 90, 160),  # Royal Purple
+            SlotType.BANNER: (40, 40, 60, 140),  # Dark Slate
+            SlotType.EAR_BOX: (100, 40, 40, 140),  # Dark Maroon
+            SlotType.SLOGAN: (50, 50, 50, 120),  # Charcoal
+            SlotType.TICKER: (90, 70, 30, 130),  # Bronze
+            SlotType.HEADLINE: (139, 30, 30, 170),  # Crimson Red
             SlotType.SUBHEADLINE: (160, 60, 40, 130),  # Amber
-            SlotType.PHOTO: (30, 86, 49, 180),        # Forest Green
-            SlotType.BODY: (27, 54, 93, 140),         # Ink Navy
-            SlotType.COLUMN: (27, 54, 93, 130),       # Column Blue
-            SlotType.QUOTE: (153, 101, 21, 160),      # Amber Gold
-            SlotType.LORE: (92, 53, 102, 140),        # Plum
-            SlotType.DIVIDER: (80, 80, 80, 140),      # Divider
-            SlotType.FOOTER: (40, 40, 40, 150),       # Footer
+            SlotType.PHOTO: (30, 86, 49, 180),  # Forest Green
+            SlotType.BODY: (27, 54, 93, 140),  # Ink Navy
+            SlotType.COLUMN: (27, 54, 93, 130),  # Column Blue
+            SlotType.QUOTE: (153, 101, 21, 160),  # Amber Gold
+            SlotType.LORE: (92, 53, 102, 140),  # Plum
+            SlotType.DIVIDER: (80, 80, 80, 140),  # Divider
+            SlotType.FOOTER: (40, 40, 40, 150),  # Footer
         }
         return fills.get(self, (50, 50, 50, 120))
 
@@ -124,6 +126,7 @@ class SlotType(str, Enum):
 
 class LayoutStatus(str, Enum):
     """Represents the origin and modification status of a newspaper layout."""
+
     BUNDLED = "Bundled"
     MODIFIED = "Modified"
     CUSTOM = "Custom"
@@ -151,12 +154,13 @@ class LayoutStatus(str, Enum):
             return "#FFB347"  # Amber Orange
         if self == LayoutStatus.BUNDLED:
             return "#66BB6A"  # Soft Green
-        return "#64B5F6"      # Soft Sky Blue
+        return "#64B5F6"  # Soft Sky Blue
 
 
 @dataclass
 class LayoutSlot:
     """Strongly-typed object-oriented representation of a newspaper layout slot."""
+
     id: str
     rect: List[int]  # [x, y, w, h]
     type: SlotType = SlotType.BODY
@@ -196,10 +200,10 @@ class LayoutSlot:
         if not isinstance(other, LayoutSlot):
             return True
         return (
-            self.id != other.id or
-            list(self.rect) != list(other.rect) or
-            self.type != other.type or
-            self.label != other.label
+            self.id != other.id
+            or list(self.rect) != list(other.rect)
+            or self.type != other.type
+            or self.label != other.label
         )
 
     def to_dict(self) -> Dict[str, object]:
@@ -209,7 +213,7 @@ class LayoutSlot:
             "rect": list(self.rect),
             "type": self.type.value if isinstance(self.type, SlotType) else str(self.type),
             "label": self.label,
-            "default_val": self.default_val
+            "default_val": self.default_val,
         }
 
     @classmethod
@@ -220,13 +224,14 @@ class LayoutSlot:
             rect=list(data.get("rect", [0, 0, 100, 100])),
             type=SlotType.from_string(data.get("type", "body")),
             label=str(data.get("label", "")),
-            default_val=str(data.get("default_val", ""))
+            default_val=str(data.get("default_val", "")),
         )
 
 
 @dataclass
 class LayoutDefinition:
     """Strongly-typed object-oriented representation of a complete newspaper layout."""
+
     id: str
     name: str = ""
     description: str = ""
@@ -271,7 +276,7 @@ class LayoutDefinition:
             "description": self.description,
             "slots": [s.to_dict() for s in self.slots],
             "bundled": self.bundled,
-            "format_version": self.format_version
+            "format_version": self.format_version,
         }
         if self.page_file:
             d["page_file"] = self.page_file
@@ -292,5 +297,5 @@ class LayoutDefinition:
             bundled=bool(data.get("bundled", False)),
             format_version=str(data.get("format_version", "1.0")),
             page_file=str(data.get("page_file", "")),
-            wireframe_file=str(data.get("wireframe_file", ""))
+            wireframe_file=str(data.get("wireframe_file", "")),
         )

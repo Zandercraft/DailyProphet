@@ -3,9 +3,10 @@
 Renders multi-page publications directly to borderless PDFs (via Pillow at 300 DPI),
 high-resolution PNG broadsheets, and animated GIF publications without any browser or CLI dependencies.
 """
+
 from __future__ import annotations
 import os
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple
 from PIL import Image, ImageSequence
 
 from .models import NewspaperEdition
@@ -137,7 +138,11 @@ class PublicationExporter:
 
             # Check if any story in this page has an animated GIF image
             target_stories = page.stories if (page and page.stories) else edition.stories
-            gif_stories = [s for s in target_stories if s.image_path.lower().endswith(".gif") or s.inline_image_path.lower().endswith(".gif")]
+            gif_stories = [
+                s
+                for s in target_stories
+                if s.image_path.lower().endswith(".gif") or s.inline_image_path.lower().endswith(".gif")
+            ]
 
             if not gif_stories:
                 # If no animated assets, produce a high-quality static GIF frame
@@ -181,11 +186,20 @@ class PublicationExporter:
 # Backwards compatibility wrappers
 _default_exporter = PublicationExporter()
 
-def export_native_pdf(edition: NewspaperEdition, output_path: str, template_ids: Optional[str | List[str]] = None, scale: float = 2.0) -> Tuple[bool, str]:
+
+def export_native_pdf(
+    edition: NewspaperEdition, output_path: str, template_ids: Optional[str | List[str]] = None, scale: float = 2.0
+) -> Tuple[bool, str]:
     return _default_exporter.export_pdf(edition, output_path, scale=scale)
 
-def export_native_image(edition: NewspaperEdition, output_path: str, template_id: str = "layout_1", scale: float = 2.0) -> Tuple[bool, str]:
+
+def export_native_image(
+    edition: NewspaperEdition, output_path: str, template_id: str = "layout_1", scale: float = 2.0
+) -> Tuple[bool, str]:
     return _default_exporter.export_page_image(edition, output_path, scale=scale)
 
-def export_animated_gif(edition: NewspaperEdition, output_path: str, page_idx: int = 0, scale: float = 1.0) -> Tuple[bool, str]:
+
+def export_animated_gif(
+    edition: NewspaperEdition, output_path: str, page_idx: int = 0, scale: float = 1.0
+) -> Tuple[bool, str]:
     return _default_exporter.export_animated_gif(edition, output_path, page_idx=page_idx, scale=scale)

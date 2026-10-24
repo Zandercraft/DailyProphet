@@ -1,4 +1,5 @@
 """Main launcher for The Daily Prophet application."""
+
 import sys
 import os
 
@@ -6,6 +7,7 @@ import os
 if sys.platform == "win32":
     try:
         import ctypes
+
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("ca.zandercraft.dailyprophet.editor")
     except Exception:
         pass

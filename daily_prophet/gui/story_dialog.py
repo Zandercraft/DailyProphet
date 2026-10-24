@@ -1,4 +1,5 @@
 """Story Editor dialog for The Daily Prophet."""
+
 import os
 from tkinter import filedialog, messagebox
 import customtkinter as ctk
@@ -28,9 +29,7 @@ class StoryDialog(ctk.CTkToplevel):
     def _setup_ui(self):
         # Header banner
         Theme.create_header_banner(
-            self,
-            title="Story Article Editor",
-            subtitle="Configure headline, body text, priority, and cutout artwork"
+            self, title="Story Article Editor", subtitle="Configure headline, body text, priority, and cutout artwork"
         )
 
         # Scrollable container for form fields
@@ -50,9 +49,9 @@ class StoryDialog(ctk.CTkToplevel):
         ctk.CTkLabel(
             prio_frame,
             text="• Cover Story: Giant headline, front-page centerpiece & multi-column spread\n"
-                 "• Major Feature: Secondary lead, prominent 2-column block\n"
-                 "• Side Column: Vertical newspaper column with dividing rules\n"
-                 "• Notice / Brief: Boxed bulletin, Ministry decree or classified snippet",
+            "• Major Feature: Secondary lead, prominent 2-column block\n"
+            "• Side Column: Vertical newspaper column with dividing rules\n"
+            "• Notice / Brief: Boxed bulletin, Ministry decree or classified snippet",
             font=ctk.CTkFont(size=11),
             text_color=("gray30", "gray70"),
             justify="left",
@@ -72,12 +71,16 @@ class StoryDialog(ctk.CTkToplevel):
         meta_frame = ctk.CTkFrame(scroll_container)
         meta_frame.pack(fill="x", pady=6)
 
-        ctk.CTkLabel(meta_frame, text="Headline (Main Title):", font=ctk.CTkFont(weight="bold")).pack(anchor="w", padx=12, pady=(8, 2))
+        ctk.CTkLabel(meta_frame, text="Headline (Main Title):", font=ctk.CTkFont(weight="bold")).pack(
+            anchor="w", padx=12, pady=(8, 2)
+        )
         self.headline_entry = ctk.CTkEntry(meta_frame, placeholder_text="e.g. MASS BREAKOUT FROM AZKABAN!")
         self.headline_entry.pack(fill="x", padx=12, pady=(0, 8))
 
         ctk.CTkLabel(meta_frame, text="Subheadline / Kicker (Secondary line):").pack(anchor="w", padx=12, pady=(2, 2))
-        self.subheadline_entry = ctk.CTkEntry(meta_frame, placeholder_text="e.g. Ministry confirms Sirius Black at large; Dementor patrols increased")
+        self.subheadline_entry = ctk.CTkEntry(
+            meta_frame, placeholder_text="e.g. Ministry confirms Sirius Black at large; Dementor patrols increased"
+        )
         self.subheadline_entry.pack(fill="x", padx=12, pady=(0, 8))
 
         # Author and Location row
@@ -100,13 +103,17 @@ class StoryDialog(ctk.CTkToplevel):
         photo_frame = ctk.CTkFrame(scroll_container)
         photo_frame.pack(fill="x", pady=6)
 
-        ctk.CTkLabel(photo_frame, text="Accompanying Photograph / Moving Portrait:", font=ctk.CTkFont(weight="bold")).pack(anchor="w", padx=12, pady=(8, 2))
+        ctk.CTkLabel(
+            photo_frame, text="Accompanying Photograph / Moving Portrait:", font=ctk.CTkFont(weight="bold")
+        ).pack(anchor="w", padx=12, pady=(8, 2))
 
         picker_row = ctk.CTkFrame(photo_frame, fg_color="transparent")
         picker_row.pack(fill="x", padx=12, pady=(0, 6))
 
         self.image_path_var = ctk.StringVar(value=self.story.image_path)
-        self.image_path_entry = ctk.CTkEntry(picker_row, textvariable=self.image_path_var, placeholder_text="No image selected (optional)")
+        self.image_path_entry = ctk.CTkEntry(
+            picker_row, textvariable=self.image_path_var, placeholder_text="No image selected (optional)"
+        )
         self.image_path_entry.pack(side="left", fill="x", expand=True, padx=(0, 8))
 
         browse_btn = ctk.CTkButton(
@@ -115,7 +122,7 @@ class StoryDialog(ctk.CTkToplevel):
             image=IconManager.get_icon("folder-open", size=13),
             compound="left",
             width=130,
-            command=self._browse_image
+            command=self._browse_image,
         )
         browse_btn.pack(side="left", padx=(0, 6))
 
@@ -127,7 +134,7 @@ class StoryDialog(ctk.CTkToplevel):
             width=135,
             fg_color=Theme.BTN_SECONDARY[0],
             hover_color=Theme.BTN_SECONDARY[1],
-            command=lambda: self._open_library(is_cutout_target=False)
+            command=lambda: self._open_library(is_cutout_target=False),
         )
         lib_btn.pack(side="left", padx=(0, 6))
 
@@ -139,7 +146,7 @@ class StoryDialog(ctk.CTkToplevel):
             width=65,
             fg_color=Theme.BTN_CONTROL[0],
             hover_color=Theme.BTN_CONTROL[1],
-            command=self._clear_image
+            command=self._clear_image,
         )
         clear_img_btn.pack(side="left")
 
@@ -148,7 +155,9 @@ class StoryDialog(ctk.CTkToplevel):
         self.thumb_preview.pack(pady=4)
 
         ctk.CTkLabel(photo_frame, text="Photo Caption:").pack(anchor="w", padx=12, pady=(4, 2))
-        self.caption_entry = ctk.CTkEntry(photo_frame, placeholder_text="e.g. Sirius Black photographed during initial apprehension.")
+        self.caption_entry = ctk.CTkEntry(
+            photo_frame, placeholder_text="e.g. Sirius Black photographed during initial apprehension."
+        )
         self.caption_entry.pack(fill="x", padx=12, pady=(0, 8))
 
         # 3b. INLINE TRANSPARENT CHARACTER / CUTOUT
@@ -173,7 +182,9 @@ class StoryDialog(ctk.CTkToplevel):
         cutout_row.pack(fill="x", padx=10, pady=(0, 6))
 
         self.inline_path_var = ctk.StringVar(value=self.story.inline_image_path)
-        self.inline_entry = ctk.CTkEntry(cutout_row, textvariable=self.inline_path_var, placeholder_text="No transparent cutout selected")
+        self.inline_entry = ctk.CTkEntry(
+            cutout_row, textvariable=self.inline_path_var, placeholder_text="No transparent cutout selected"
+        )
         self.inline_entry.pack(side="left", fill="x", expand=True, padx=(0, 8))
 
         cutout_lib_btn = ctk.CTkButton(
@@ -196,7 +207,7 @@ class StoryDialog(ctk.CTkToplevel):
             width=65,
             fg_color=Theme.BTN_CONTROL[0],
             hover_color=Theme.BTN_CONTROL[1],
-            command=self._clear_cutout
+            command=self._clear_cutout,
         )
         clear_cutout_btn.pack(side="left")
 
@@ -206,7 +217,9 @@ class StoryDialog(ctk.CTkToplevel):
 
         ctk.CTkLabel(align_row, text="Cutout Alignment:").pack(side="left", padx=(0, 8))
         self.inline_align_var = ctk.StringVar(value=str(self.story.inline_image_align or ImageAlign.RIGHT.value))
-        self.align_menu = ctk.CTkOptionMenu(align_row, variable=self.inline_align_var, values=ImageAlign.choices(), width=110)
+        self.align_menu = ctk.CTkOptionMenu(
+            align_row, variable=self.inline_align_var, values=ImageAlign.choices(), width=110
+        )
         self.align_menu.pack(side="left")
 
         # 4. PULL QUOTE & BOX STYLE
@@ -214,7 +227,9 @@ class StoryDialog(ctk.CTkToplevel):
         opt_frame.pack(fill="x", pady=6)
 
         ctk.CTkLabel(opt_frame, text="Highlight Pull Quote (Callout text):").pack(anchor="w", padx=12, pady=(8, 2))
-        self.quote_entry = ctk.CTkEntry(opt_frame, placeholder_text="e.g. 'He could be anywhere, disguised or lurking in shadow.'")
+        self.quote_entry = ctk.CTkEntry(
+            opt_frame, placeholder_text="e.g. 'He could be anywhere, disguised or lurking in shadow.'"
+        )
         self.quote_entry.pack(fill="x", padx=12, pady=(0, 8))
 
         box_row = ctk.CTkFrame(opt_frame, fg_color="transparent")
@@ -234,7 +249,9 @@ class StoryDialog(ctk.CTkToplevel):
         body_frame = ctk.CTkFrame(scroll_container)
         body_frame.pack(fill="both", expand=True, pady=6)
 
-        ctk.CTkLabel(body_frame, text="Article Body Text (paragraphs separated by blank lines):", font=ctk.CTkFont(weight="bold")).pack(anchor="w", padx=12, pady=(8, 2))
+        ctk.CTkLabel(
+            body_frame, text="Article Body Text (paragraphs separated by blank lines):", font=ctk.CTkFont(weight="bold")
+        ).pack(anchor="w", padx=12, pady=(8, 2))
 
         self.body_text = ctk.CTkTextbox(body_frame, height=220, font=ctk.CTkFont(size=12))
         self.body_text.pack(fill="both", expand=True, padx=12, pady=(0, 12))

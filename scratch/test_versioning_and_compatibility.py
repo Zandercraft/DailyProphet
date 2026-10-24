@@ -7,11 +7,8 @@ import shutil
 sys.path.insert(0, os.path.abspath("."))
 
 from daily_prophet.models import NewspaperEdition, Story
-from daily_prophet.versioning import (
-    ProjectMigrator,
-    TemplateMigrator,
-    CURRENT_PROJECT_VERSION
-)
+from daily_prophet.versioning import ProjectMigrator, TemplateMigrator, CURRENT_PROJECT_VERSION
+
 
 def test_versioning_and_compatibility():
     print("--- 1. Testing Creation of Legacy v1.0 Package ---")
@@ -23,7 +20,7 @@ def test_versioning_and_compatibility():
         "application": "The Daily Prophet",
         "format": "prophet_package",
         "version": "1.0",
-        "edition_title": "Daily Prophet 1993 Edition"
+        "edition_title": "Daily Prophet 1993 Edition",
     }
     v1_edition_data = {
         "paper_title": "Daily Prophet 1993 Edition",
@@ -32,9 +29,9 @@ def test_versioning_and_compatibility():
             {
                 "id": "story1",
                 "headline": "Black Still At Large",
-                "body": "Sirius Black remains uncaptured by the Ministry."
+                "body": "Sirius Black remains uncaptured by the Ministry.",
             }
-        ]
+        ],
     }
 
     with zipfile.ZipFile(v1_pkg_path, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -49,7 +46,9 @@ def test_versioning_and_compatibility():
 
     # In-memory upgrade assertions
     assert loaded.is_upgraded_in_memory is True, "is_upgraded_in_memory should be True for v1.0 file"
-    assert loaded.original_loaded_version == "1.0", f"Expected original version '1.0', got '{loaded.original_loaded_version}'"
+    assert loaded.original_loaded_version == "1.0", (
+        f"Expected original version '1.0', got '{loaded.original_loaded_version}'"
+    )
     assert loaded.file_format_version == CURRENT_PROJECT_VERSION, f"Expected format version '{CURRENT_PROJECT_VERSION}'"
 
     # Verify modern fields initialized cleanly
@@ -71,13 +70,15 @@ def test_versioning_and_compatibility():
     print("\n--- 4. Testing Word-Style Compatibility Checker & Destructive Downgrade ---")
     # Modern v2.0 edition with advanced features
     modern_edition = NewspaperEdition(paper_title="Modern Edition")
-    modern_edition.custom_layouts["layout_1"] = {"slots": [{"id": "custom1", "rect": [0,0,10,10]}]}
-    modern_edition.stories.append(Story(
-        headline="Advanced Alchemical Discovery",
-        inline_image_path="test_cutout.png",
-        box_style="ornate_box",
-        pull_quote="Gold can be synthesized!"
-    ))
+    modern_edition.custom_layouts["layout_1"] = {"slots": [{"id": "custom1", "rect": [0, 0, 10, 10]}]}
+    modern_edition.stories.append(
+        Story(
+            headline="Advanced Alchemical Discovery",
+            inline_image_path="test_cutout.png",
+            box_style="ornate_box",
+            pull_quote="Gold can be synthesized!",
+        )
+    )
 
     # Compatibility check against v1.0
     warnings = ProjectMigrator.analyze_downgrade(modern_edition.to_dict(), target_version="1.0")
@@ -101,12 +102,7 @@ def test_versioning_and_compatibility():
     print("[OK] Compatibility Mode export successfully generated valid v1.0 package.")
 
     print("\n--- 5. Testing Template Migrator Compatibility ---")
-    v1_template = {
-        "label": "Old Style Template",
-        "slots": [
-            {"id": "slot1", "rect": [10, 10, 200, 100]}
-        ]
-    }
+    v1_template = {"label": "Old Style Template", "slots": [{"id": "slot1", "rect": [10, 10, 200, 100]}]}
     v1_t_ver = TemplateMigrator.detect_version(None, v1_template)
     migrated_t, was_t_up, orig_t_ver = TemplateMigrator.migrate_to_latest(v1_template, v1_t_ver)
     assert was_t_up is True
@@ -118,6 +114,7 @@ def test_versioning_and_compatibility():
     shutil.rmtree("output/test_versioning", ignore_errors=True)
 
     print("\nAll versioning and compatibility mode checks passed successfully!")
+
 
 if __name__ == "__main__":
     test_versioning_and_compatibility()

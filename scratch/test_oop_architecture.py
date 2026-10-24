@@ -11,7 +11,7 @@ from daily_prophet.versioning import (
     CompatibilityModeStrategy,
     CompatibilityIssue,
     CURRENT_PROJECT_VERSION,
-    CURRENT_TEMPLATE_VERSION
+    CURRENT_TEMPLATE_VERSION,
 )
 from daily_prophet.template_package import load_all_installed_templates, delete_installed_template
 
@@ -61,11 +61,13 @@ class TestOOPArchitectureAndV10(unittest.TestCase):
         def v10_analyzer(data):
             issues = []
             if "animated_gif_url" in data:
-                issues.append(CompatibilityIssue(
-                    feature_name="Animated Photos",
-                    description="Animated GIFs will be flattened to static images in v1.0.",
-                    severity="lossy"
-                ))
+                issues.append(
+                    CompatibilityIssue(
+                        feature_name="Animated Photos",
+                        description="Animated GIFs will be flattened to static images in v1.0.",
+                        severity="lossy",
+                    )
+                )
             return issues
 
         def v10_transformer(data):

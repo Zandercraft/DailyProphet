@@ -10,10 +10,11 @@ from daily_prophet.template_package import (
     load_all_installed_templates,
     save_installed_template,
     delete_installed_template,
-    SHIPPED_TEMPLATES_DIR
+    SHIPPED_TEMPLATES_DIR,
 )
 from daily_prophet.models import NewspaperEdition, Story
 from daily_prophet.native_renderer import NativeBroadsheetRenderer
+
 
 def test_prophettemplate_system():
     print("--- 1. Testing Shipped .prophettemplate Files ---")
@@ -35,7 +36,9 @@ def test_prophettemplate_system():
         tdata = all_templates[f"layout_{i}"]
         assert os.path.isfile(tdata["page_file"]), f"page_file does not exist on disk: {tdata['page_file']}"
         assert len(tdata["slots"]) > 0, f"Slots empty in {tdata['label']}"
-    print(f"[OK] Successfully loaded {len([k for k in all_templates if not k.startswith('additional_')])} templates from .prophettemplate archives.")
+    print(
+        f"[OK] Successfully loaded {len([k for k in all_templates if not k.startswith('additional_')])} templates from .prophettemplate archives."
+    )
 
     print("\n--- 3. Testing Single Template Modification & .bak Auto-Backup ---")
     test_id = "test_custom_template"
@@ -47,7 +50,7 @@ def test_prophettemplate_system():
         "width": 1122,
         "height": 1402,
         "label": "Original Test Template",
-        "slots": [{"id": "head", "type": "headline", "rect": [10, 10, 500, 50], "label": "Head"}]
+        "slots": [{"id": "head", "type": "headline", "rect": [10, 10, 500, 50], "label": "Head"}],
     }
 
     # Initial save
@@ -85,6 +88,7 @@ def test_prophettemplate_system():
     shutil.rmtree(test_inst_dir, ignore_errors=True)
 
     print("\nAll .prophettemplate system verification checks passed successfully!")
+
 
 if __name__ == "__main__":
     test_prophettemplate_system()

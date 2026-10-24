@@ -1,4 +1,5 @@
 """Test rendering all 9 Additional Layouts into a single 9-page PDF and individual PNGs."""
+
 import os
 import json
 from typing import Dict, Any
@@ -7,12 +8,13 @@ from daily_prophet.models import NewspaperEdition, Story, StoryPriority
 from daily_prophet.sample_data import get_original_hogwarts_edition
 from daily_prophet.native_renderer import BroadsheetFontManager, _wrap_text_to_width, _draw_story_paragraphs
 
+
 def render_layout_slots(
     edition: NewspaperEdition,
     layout_id: str,
     layout_def: Dict[str, Any],
     font_mgr: BroadsheetFontManager,
-    scale: float = 1.0
+    scale: float = 1.0,
 ) -> Image.Image:
     page_file = layout_def["page_file"]
     assert os.path.exists(page_file), f"Template page file not found: {page_file}"
@@ -39,10 +41,12 @@ def render_layout_slots(
     # Pool of stories to assign across slots
     cover_stories = [s for s in edition.stories if s.priority == StoryPriority.COVER.value]
     major_stories = [s for s in edition.stories if s.priority == StoryPriority.MAJOR.value]
-    col_stories = [s for s in edition.stories if s.priority == StoryPriority.COLUMN.value]
-    snippet_stories = [s for s in edition.stories if s.priority == StoryPriority.SNIPPET.value]
 
-    cover = cover_stories[0] if cover_stories else (edition.stories[0] if edition.stories else Story(headline="HOGWARTS NEWS"))
+    cover = (
+        cover_stories[0]
+        if cover_stories
+        else (edition.stories[0] if edition.stories else Story(headline="HOGWARTS NEWS"))
+    )
     major = major_stories[0] if major_stories else (edition.stories[1] if len(edition.stories) > 1 else cover)
     other_stories = [s for s in edition.stories if s != cover and s != major]
     if not other_stories:
@@ -53,7 +57,7 @@ def render_layout_slots(
     lore_items = [
         (edition.lore_title_1, edition.lore_body_1),
         (edition.lore_title_2, edition.lore_body_2),
-        ("WORDS OF WISDOM", f'"{edition.quote_text}" — {edition.quote_author}')
+        ("WORDS OF WISDOM", f'"{edition.quote_text}" — {edition.quote_author}'),
     ]
 
     for slot in layout_def.get("slots", []):
@@ -77,16 +81,43 @@ def render_layout_slots(
             draw.rectangle([rx, ry, rx + rw, ry + rh], outline=border_ink, width=S(1))
             if "left" in sid:
                 # Date / Day
-                draw.text((rx + S(6), ry + S(4)), edition.edition_day.upper(), font=font_mgr.get_font("headline", S(9)), fill=ink_black)
-                draw.text((rx + S(6), ry + S(18)), edition.edition_date.upper(), font=font_mgr.get_font("subhead", S(10)), fill=ink_black)
+                draw.text(
+                    (rx + S(6), ry + S(4)),
+                    edition.edition_day.upper(),
+                    font=font_mgr.get_font("headline", S(9)),
+                    fill=ink_black,
+                )
+                draw.text(
+                    (rx + S(6), ry + S(18)),
+                    edition.edition_date.upper(),
+                    font=font_mgr.get_font("subhead", S(10)),
+                    fill=ink_black,
+                )
                 draw.line([rx + S(6), ry + S(34), rx + rw - S(6), ry + S(34)], fill=border_ink, width=S(1))
-                draw.text((rx + S(6), ry + S(38)), edition.issue_number.upper(), font=font_mgr.get_font("headline", S(8)), fill=ink_muted)
+                draw.text(
+                    (rx + S(6), ry + S(38)),
+                    edition.issue_number.upper(),
+                    font=font_mgr.get_font("headline", S(8)),
+                    fill=ink_muted,
+                )
             else:
                 # Price / Weather
-                draw.text((rx + S(6), ry + S(4)), "PRICE: " + edition.price.upper(), font=font_mgr.get_font("headline", S(9)), fill=accent_red)
-                draw.text((rx + S(6), ry + S(18)), "CASTLE WEATHER", font=font_mgr.get_font("headline", S(8)), fill=ink_black)
+                draw.text(
+                    (rx + S(6), ry + S(4)),
+                    "PRICE: " + edition.price.upper(),
+                    font=font_mgr.get_font("headline", S(9)),
+                    fill=accent_red,
+                )
+                draw.text(
+                    (rx + S(6), ry + S(18)), "CASTLE WEATHER", font=font_mgr.get_font("headline", S(8)), fill=ink_black
+                )
                 draw.line([rx + S(6), ry + S(30), rx + rw - S(6), ry + S(30)], fill=border_ink, width=S(1))
-                draw.text((rx + S(6), ry + S(35)), edition.weather[:24], font=font_mgr.get_font("body_italic", S(8)), fill=ink_dark)
+                draw.text(
+                    (rx + S(6), ry + S(35)),
+                    edition.weather[:24],
+                    font=font_mgr.get_font("body_italic", S(8)),
+                    fill=ink_dark,
+                )
 
         elif stype == "slogan":
             s_font = font_mgr.get_font("headline", min(S(10), int(rh * 0.45)))
@@ -106,8 +137,16 @@ def render_layout_slots(
 
         elif stype in ["headline", "subheadline"]:
             # Pick matching story
-            target_story = cover if "lead" in sid or "main" in sid or "hero" in sid else (major if "feature" in sid or "top" in sid else other_stories[story_cursor % len(other_stories)])
-            text_str = target_story.headline.upper() if stype == "headline" else (target_story.subheadline or target_story.headline)
+            target_story = (
+                cover
+                if "lead" in sid or "main" in sid or "hero" in sid
+                else (major if "feature" in sid or "top" in sid else other_stories[story_cursor % len(other_stories)])
+            )
+            text_str = (
+                target_story.headline.upper()
+                if stype == "headline"
+                else (target_story.subheadline or target_story.headline)
+            )
             font_type = "headline" if stype == "headline" else "subhead_italic"
             font_size = min(S(20), max(S(10), int(rh * 0.45)))
             h_font = font_mgr.get_font(font_type, font_size)
@@ -119,8 +158,14 @@ def render_layout_slots(
 
         elif stype == "photo":
             # Assign appropriate image
-            target_story = cover if "lead" in sid or "hero" in sid or "top" in sid else (major if "feature" in sid else other_stories[story_cursor % len(other_stories)])
-            img_path = target_story.image_path if target_story.image_path and os.path.exists(target_story.image_path) else None
+            target_story = (
+                cover
+                if "lead" in sid or "hero" in sid or "top" in sid
+                else (major if "feature" in sid else other_stories[story_cursor % len(other_stories)])
+            )
+            img_path = (
+                target_story.image_path if target_story.image_path and os.path.exists(target_story.image_path) else None
+            )
             if img_path:
                 try:
                     with Image.open(img_path) as p_img:
@@ -152,7 +197,7 @@ def render_layout_slots(
                 max_h=rh,
                 line_h=S(13),
                 fill=ink_black,
-                has_drop_cap=True
+                has_drop_cap=True,
             )
 
         elif stype == "quote":
@@ -164,7 +209,12 @@ def render_layout_slots(
             for ql in qlines:
                 draw.text((rx + S(8), qy), ql, font=q_font, fill=accent_red)
                 qy += S(14)
-            draw.text((rx + S(8), qy + S(4)), f"— {edition.quote_author.upper()}", font=font_mgr.get_font("headline", S(8.5)), fill=ink_dark)
+            draw.text(
+                (rx + S(8), qy + S(4)),
+                f"— {edition.quote_author.upper()}",
+                font=font_mgr.get_font("headline", S(8.5)),
+                fill=ink_dark,
+            )
 
         elif stype == "lore":
             ltitle, lbody = lore_items[lore_cursor % len(lore_items)]
@@ -183,7 +233,7 @@ def render_layout_slots(
                 max_h=rh - S(20),
                 line_h=S(12),
                 fill=ink_black,
-                has_drop_cap=False
+                has_drop_cap=False,
             )
 
         elif stype == "footer":
@@ -195,6 +245,7 @@ def render_layout_slots(
             draw.text((rx + (rw - fw) // 2, ry + S(4)), f_text, font=f_font, fill=ink_dark)
 
     return canvas
+
 
 def main():
     edition = get_original_hogwarts_edition(".")
@@ -218,13 +269,10 @@ def main():
     # Also export all 9 pages into a single multi-page PDF!
     multi_pdf_path = "output/additional_layouts/Vintage_Wizarding_Gazette_9Pages.pdf"
     rendered_pages[0].save(
-        multi_pdf_path,
-        "PDF",
-        resolution=150.0 * 1.5,
-        save_all=True,
-        append_images=rendered_pages[1:]
+        multi_pdf_path, "PDF", resolution=150.0 * 1.5, save_all=True, append_images=rendered_pages[1:]
     )
     print(f"\nSuccessfully generated 9-page PDF: {multi_pdf_path} (Pages: {len(rendered_pages)})")
+
 
 if __name__ == "__main__":
     main()

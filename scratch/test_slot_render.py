@@ -1,8 +1,10 @@
 """Test rendering an edition onto Additional Layout 1 and generating a sample PDF and PNG."""
+
 import os
 import json
 from PIL import Image, ImageDraw, ImageFont
 from daily_prophet.sample_data import get_original_hogwarts_edition
+
 
 def test_slot_render():
     edition = get_original_hogwarts_edition(".")
@@ -22,9 +24,6 @@ def test_slot_render():
 
     # Ink colors
     ink_black = (18, 14, 10)
-    ink_dark = (42, 34, 26)
-    ink_muted = (92, 78, 64)
-    accent_red = (110, 24, 24)
 
     # Font helper
     def get_font(name, sz):
@@ -33,7 +32,7 @@ def test_slot_render():
             "headline": "assets/fonts/Cinzel.ttf",
             "subhead": "assets/fonts/PlayfairDisplay.ttf",
             "body": "assets/fonts/IMFellEnglish-Regular.ttf",
-            "italic": "assets/fonts/PlayfairDisplay-Italic.ttf"
+            "italic": "assets/fonts/PlayfairDisplay-Italic.ttf",
         }
         fp = fmap.get(name, fmap["body"])
         if os.path.exists(fp):
@@ -60,6 +59,7 @@ def test_slot_render():
     out_png = "output/test/additional_layout_1_test.png"
     base_img.convert("RGB").save(out_png)
     print(f"Saved test render to: {out_png}")
+
 
 if __name__ == "__main__":
     test_slot_render()

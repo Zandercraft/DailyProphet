@@ -6,12 +6,9 @@ import zipfile
 sys.path.insert(0, os.path.abspath("."))
 
 from daily_prophet.models import NewspaperEdition, Story
-from daily_prophet.template_package import (
-    load_all_installed_templates,
-    delete_installed_template,
-    is_layout_modified
-)
+from daily_prophet.template_package import load_all_installed_templates, delete_installed_template, is_layout_modified
 from daily_prophet.gui.layout_editor_window import LayoutEditorWindow
+
 
 def test_bundled_and_modified():
     print("--- 1. Testing Bundled Flag on Pre-Included Templates ---")
@@ -52,6 +49,7 @@ def test_bundled_and_modified():
     print("\n--- 3. Testing Layout Editor Checkbox Defaulting to OFF ---")
     # Simulate loading into LayoutEditorWindow
     import customtkinter as ctk
+
     app = ctk.CTk()
     app.withdraw()
 
@@ -65,6 +63,7 @@ def test_bundled_and_modified():
         os.remove(test_pkg)
 
     print("\nAll bundled template protection and modified detection checks passed successfully!")
+
 
 if __name__ == "__main__":
     test_bundled_and_modified()

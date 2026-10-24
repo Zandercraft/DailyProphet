@@ -3,6 +3,7 @@
 Usage:
     python layout_editor.py
 """
+
 import sys
 import os
 
@@ -10,6 +11,7 @@ import os
 if sys.platform == "win32":
     try:
         import ctypes
+
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("ca.zandercraft.dailyprophet.editor")
     except Exception:
         pass
@@ -21,6 +23,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from daily_prophet.gui.layout_editor_window import LayoutEditorWindow
 
+
 def main():
     ctk.set_appearance_mode("dark")
     ctk.set_default_color_theme("dark-blue")
@@ -30,6 +33,7 @@ def main():
     editor = LayoutEditorWindow(root, initial_layout="layout_1", base_dir=".")
     editor.protocol("WM_DELETE_WINDOW", root.destroy)
     root.mainloop()
+
 
 if __name__ == "__main__":
     main()

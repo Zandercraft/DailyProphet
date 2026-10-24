@@ -1,4 +1,5 @@
 """Default Daily Prophet editions, using newly generated AI assets and original format."""
+
 import os
 from .models import NewspaperEdition, Story, StoryPriority
 
@@ -145,7 +146,6 @@ def get_hogwarts_legacy_edition(base_dir: str = ".") -> NewspaperEdition:
 def get_original_hogwarts_edition(base_dir: str = ".") -> NewspaperEdition:
     """Returns the Hogwarts Original Issue with generated AI artwork."""
     lib_dir = os.path.join(base_dir, "assets", "library")
-    char_dir = os.path.join(lib_dir, "characters")
     loc_dir = os.path.join(lib_dir, "locations")
     artifact_dir = os.path.join(lib_dir, "creatures_and_artifacts")
 

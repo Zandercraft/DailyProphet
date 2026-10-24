@@ -5,24 +5,9 @@ import json
 
 sys.path.insert(0, os.path.abspath("."))
 
-from daily_prophet.models import (
-    StoryPriority,
-    BoxStyle,
-    ImageAlign,
-    PaperTheme,
-    BorderStyle,
-    Story,
-    NewspaperEdition
-)
-from daily_prophet.layout_models import (
-    SlotType,
-    LayoutStatus,
-    LayoutSlot,
-    LayoutDefinition
-)
-from daily_prophet.versioning import (
-    CompatibilitySeverity
-)
+from daily_prophet.models import StoryPriority, BoxStyle, ImageAlign, PaperTheme, BorderStyle, Story, NewspaperEdition
+from daily_prophet.layout_models import SlotType, LayoutStatus, LayoutSlot, LayoutDefinition
+from daily_prophet.versioning import CompatibilitySeverity
 from daily_prophet.template_package import is_layout_modified
 
 
@@ -58,7 +43,7 @@ class TestEnumsAndOOPRefactoring(unittest.TestCase):
             rect=[50, 100, 400, 250],
             type=SlotType.HEADLINE,
             label="Breaking Banner",
-            default_val="DEFAULT"
+            default_val="DEFAULT",
         )
         self.assertEqual(slot.x, 50)
         self.assertEqual(slot.y, 100)
@@ -108,7 +93,7 @@ class TestEnumsAndOOPRefactoring(unittest.TestCase):
             headline="Dumbledore Returns",
             priority=StoryPriority.COVER,
             box_style=BoxStyle.ORNATE_BOX,
-            inline_image_align=ImageAlign.LEFT
+            inline_image_align=ImageAlign.LEFT,
         )
         self.assertEqual(story.priority, StoryPriority.COVER)
         self.assertEqual(story.box_style, BoxStyle.ORNATE_BOX)
@@ -128,7 +113,7 @@ class TestEnumsAndOOPRefactoring(unittest.TestCase):
             paper_title="The Daily Prophet",
             theme=PaperTheme.PARCHMENT,
             border_style=BorderStyle.CLEAN_RULED,
-            stories=[story]
+            stories=[story],
         )
         e_dict = edition.to_dict()
         self.assertEqual(e_dict["theme"], "parchment")

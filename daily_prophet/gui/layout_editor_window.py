@@ -10,6 +10,7 @@ Supports:
 - Removing custom templates
 - Restoring factory shipped defaults
 """
+
 import os
 import shutil
 import copy
@@ -22,7 +23,7 @@ from ..generate_masks import (
     load_layout_definitions,
     save_global_layout_definitions,
     generate_wireframe_mask_for_layout,
-    restore_factory_templates
+    restore_factory_templates,
 )
 from ..template_package import (
     create_template_package,
@@ -31,7 +32,7 @@ from ..template_package import (
     delete_installed_template,
     is_layout_modified,
     INSTALLED_TEMPLATES_DIR,
-    CURRENT_TEMPLATE_VERSION
+    CURRENT_TEMPLATE_VERSION,
 )
 
 from ..layout_models import SlotType, LayoutStatus
@@ -44,7 +45,15 @@ BUILTIN_SHIPPED_LAYOUTS = [f"layout_{i}" for i in range(1, 10)]
 
 
 class LayoutEditorWindow(ctk.CTkToplevel):
-    def __init__(self, parent=None, initial_layout="layout_1", edition=None, on_project_save=None, on_global_change=None, base_dir="."):
+    def __init__(
+        self,
+        parent=None,
+        initial_layout="layout_1",
+        edition=None,
+        on_project_save=None,
+        on_global_change=None,
+        base_dir=".",
+    ):
         super().__init__(parent)
         self.parent = parent
         self.base_dir = os.path.abspath(base_dir)
@@ -73,7 +82,9 @@ class LayoutEditorWindow(ctk.CTkToplevel):
 
         self.defs_path = None
         self.global_layouts = load_layout_definitions(base_dir=self.base_dir)
-        self.project_custom_layouts = dict(self.edition.custom_layouts) if (self.edition and hasattr(self.edition, "custom_layouts")) else {}
+        self.project_custom_layouts = (
+            dict(self.edition.custom_layouts) if (self.edition and hasattr(self.edition, "custom_layouts")) else {}
+        )
 
         # Working dictionary of layouts: global defaults overlaid with any project-level custom slots
         self.layouts_data = {}
@@ -121,7 +132,7 @@ class LayoutEditorWindow(ctk.CTkToplevel):
             top_bar,
             text="🛠️ LAYOUT SLOT EDITOR",
             font=ctk.CTkFont(family="Georgia", size=15, weight="bold"),
-            text_color="#f5ede0"
+            text_color="#f5ede0",
         ).pack(side="left", padx=14, pady=8)
 
         # Layout selector
@@ -130,12 +141,7 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         if not layout_keys:
             layout_keys = list(self.layouts_data.keys())
 
-        self.layout_menu = ctk.CTkOptionMenu(
-            top_bar,
-            values=layout_keys,
-            width=160,
-            command=self._on_layout_selected
-        )
+        self.layout_menu = ctk.CTkOptionMenu(top_bar, values=layout_keys, width=160, command=self._on_layout_selected)
         self.layout_menu.set(self.current_layout_key)
         self.layout_menu.pack(side="left", padx=4)
 
@@ -146,7 +152,7 @@ class LayoutEditorWindow(ctk.CTkToplevel):
             fg_color="#3d342a",
             text_color="#c2b6a4",
             corner_radius=4,
-            font=ctk.CTkFont(size=10, weight="bold")
+            font=ctk.CTkFont(size=10, weight="bold"),
         )
         self.scope_badge.pack(side="left", padx=6)
 
@@ -163,7 +169,7 @@ class LayoutEditorWindow(ctk.CTkToplevel):
             fg_color=Theme.BTN_NEUTRAL[0],
             hover_color=Theme.BTN_NEUTRAL[1],
             font=ctk.CTkFont(size=11),
-            command=self._show_add_template_dialog
+            command=self._show_add_template_dialog,
         ).pack(side="left", padx=2)
 
         ctk.CTkButton(
@@ -175,7 +181,7 @@ class LayoutEditorWindow(ctk.CTkToplevel):
             fg_color=Theme.BTN_SUCCESS[0],
             hover_color=Theme.BTN_SUCCESS[1],
             font=ctk.CTkFont(size=11),
-            command=self._import_template_package
+            command=self._import_template_package,
         ).pack(side="left", padx=2)
 
         ctk.CTkButton(
@@ -187,7 +193,7 @@ class LayoutEditorWindow(ctk.CTkToplevel):
             fg_color=Theme.BTN_SUCCESS[0],
             hover_color=Theme.BTN_SUCCESS[1],
             font=ctk.CTkFont(size=11),
-            command=self._export_template_package
+            command=self._export_template_package,
         ).pack(side="left", padx=2)
 
         self.delete_btn = ctk.CTkButton(
@@ -199,7 +205,7 @@ class LayoutEditorWindow(ctk.CTkToplevel):
             fg_color=Theme.BTN_DANGER[0],
             hover_color=Theme.BTN_DANGER[1],
             font=ctk.CTkFont(size=11),
-            command=self._confirm_delete_template
+            command=self._confirm_delete_template,
         )
 
         self.reset_btn = ctk.CTkButton(
@@ -211,7 +217,7 @@ class LayoutEditorWindow(ctk.CTkToplevel):
             fg_color=Theme.BTN_SECONDARY[0],
             hover_color=Theme.BTN_SECONDARY[1],
             font=ctk.CTkFont(size=11),
-            command=self._show_reset_dialog
+            command=self._show_reset_dialog,
         )
         self.reset_btn.pack(side="left", padx=2)
 
@@ -219,12 +225,40 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         zoom_frame = ctk.CTkFrame(top_bar, fg_color="transparent")
         zoom_frame.pack(side="left", padx=12)
 
-        ctk.CTkButton(zoom_frame, text="-", width=34, fg_color=Theme.BTN_CONTROL[0], hover_color=Theme.BTN_CONTROL[1], command=self._zoom_out).pack(side="left", padx=2)
+        ctk.CTkButton(
+            zoom_frame,
+            text="-",
+            width=34,
+            fg_color=Theme.BTN_CONTROL[0],
+            hover_color=Theme.BTN_CONTROL[1],
+            command=self._zoom_out,
+        ).pack(side="left", padx=2)
         self.zoom_lbl = ctk.CTkLabel(zoom_frame, text="75%", width=44)
         self.zoom_lbl.pack(side="left", padx=2)
-        ctk.CTkButton(zoom_frame, text="+", width=34, fg_color=Theme.BTN_CONTROL[0], hover_color=Theme.BTN_CONTROL[1], command=self._zoom_in).pack(side="left", padx=2)
-        ctk.CTkButton(zoom_frame, text="100%", width=46, fg_color=Theme.BTN_CONTROL[0], hover_color=Theme.BTN_CONTROL[1], command=self._zoom_reset).pack(side="left", padx=2)
-        ctk.CTkButton(zoom_frame, text="Fit Width", width=68, fg_color=Theme.BTN_CONTROL[0], hover_color=Theme.BTN_CONTROL[1], command=self._zoom_fit_width).pack(side="left", padx=2)
+        ctk.CTkButton(
+            zoom_frame,
+            text="+",
+            width=34,
+            fg_color=Theme.BTN_CONTROL[0],
+            hover_color=Theme.BTN_CONTROL[1],
+            command=self._zoom_in,
+        ).pack(side="left", padx=2)
+        ctk.CTkButton(
+            zoom_frame,
+            text="100%",
+            width=46,
+            fg_color=Theme.BTN_CONTROL[0],
+            hover_color=Theme.BTN_CONTROL[1],
+            command=self._zoom_reset,
+        ).pack(side="left", padx=2)
+        ctk.CTkButton(
+            zoom_frame,
+            text="Fit Width",
+            width=68,
+            fg_color=Theme.BTN_CONTROL[0],
+            hover_color=Theme.BTN_CONTROL[1],
+            command=self._zoom_fit_width,
+        ).pack(side="left", padx=2)
 
         # Actions on right: Save to Project (Primary) & Save to Global
         action_box = ctk.CTkFrame(top_bar, fg_color="transparent")
@@ -238,7 +272,7 @@ class LayoutEditorWindow(ctk.CTkToplevel):
             width=135,
             fg_color=Theme.BTN_SUCCESS[0],
             hover_color=Theme.BTN_SUCCESS[1],
-            command=self._activate_draw_mode
+            command=self._activate_draw_mode,
         ).pack(side="left", padx=3)
 
         # Checkbox to also update global template (defaults to OFF on open)
@@ -249,7 +283,7 @@ class LayoutEditorWindow(ctk.CTkToplevel):
             font=ctk.CTkFont(size=11),
             text_color="#c2b6a4",
             checkbox_width=18,
-            checkbox_height=18
+            checkbox_height=18,
         )
         self.save_global_check.pack(side="left", padx=6)
 
@@ -263,7 +297,7 @@ class LayoutEditorWindow(ctk.CTkToplevel):
             font=ctk.CTkFont(weight="bold"),
             fg_color=Theme.BTN_PRIMARY[0],
             hover_color=Theme.BTN_PRIMARY[1],
-            command=self._save_to_current_project
+            command=self._save_to_current_project,
         ).pack(side="left", padx=4)
 
         # Global template save action
@@ -276,7 +310,7 @@ class LayoutEditorWindow(ctk.CTkToplevel):
             font=ctk.CTkFont(size=11),
             fg_color=Theme.BTN_NEUTRAL[0],
             hover_color=Theme.BTN_NEUTRAL[1],
-            command=self._save_to_global_template
+            command=self._save_to_global_template,
         ).pack(side="left", padx=3)
 
         # 2. MAIN SPLIT (Canvas on left, Inspector on right)
@@ -295,7 +329,7 @@ class LayoutEditorWindow(ctk.CTkToplevel):
             bg="#16120e",
             highlightthickness=0,
             xscrollcommand=self.h_scroll.set,
-            yscrollcommand=self.v_scroll.set
+            yscrollcommand=self.v_scroll.set,
         )
 
         self.v_scroll.config(command=self.canvas.yview)
@@ -338,35 +372,36 @@ class LayoutEditorWindow(ctk.CTkToplevel):
     def _setup_inspector(self):
         parent = self.inspector_panel
 
-        ctk.CTkLabel(
-            parent,
-            text="Slot Inspector",
-            font=ctk.CTkFont(family="Georgia", size=15, weight="bold")
-        ).pack(anchor="w", padx=14, pady=(10, 4))
+        ctk.CTkLabel(parent, text="Slot Inspector", font=ctk.CTkFont(family="Georgia", size=15, weight="bold")).pack(
+            anchor="w", padx=14, pady=(10, 4)
+        )
 
         # Selected Slot Editor Box
         self.edit_frame = ctk.CTkFrame(parent, fg_color=("#221c16", "#14100c"), corner_radius=6)
         self.edit_frame.pack(fill="x", padx=10, pady=4)
 
         # Slot ID
-        ctk.CTkLabel(self.edit_frame, text="Slot Identifier (ID):", font=ctk.CTkFont(size=11, weight="bold")).pack(anchor="w", padx=10, pady=(8, 2))
+        ctk.CTkLabel(self.edit_frame, text="Slot Identifier (ID):", font=ctk.CTkFont(size=11, weight="bold")).pack(
+            anchor="w", padx=10, pady=(8, 2)
+        )
         self.slot_id_entry = ctk.CTkEntry(self.edit_frame, height=28)
         self.slot_id_entry.pack(fill="x", padx=10, pady=(0, 6))
         self.slot_id_entry.bind("<KeyRelease>", self._on_slot_prop_changed)
 
         # Slot Label
-        ctk.CTkLabel(self.edit_frame, text="Human Label / Name:", font=ctk.CTkFont(size=11, weight="bold")).pack(anchor="w", padx=10, pady=(2, 2))
+        ctk.CTkLabel(self.edit_frame, text="Human Label / Name:", font=ctk.CTkFont(size=11, weight="bold")).pack(
+            anchor="w", padx=10, pady=(2, 2)
+        )
         self.slot_label_entry = ctk.CTkEntry(self.edit_frame, height=28)
         self.slot_label_entry.pack(fill="x", padx=10, pady=(0, 6))
         self.slot_label_entry.bind("<KeyRelease>", self._on_slot_prop_changed)
 
         # Slot Type
-        ctk.CTkLabel(self.edit_frame, text="Slot Content Type:", font=ctk.CTkFont(size=11, weight="bold")).pack(anchor="w", padx=10, pady=(2, 2))
+        ctk.CTkLabel(self.edit_frame, text="Slot Content Type:", font=ctk.CTkFont(size=11, weight="bold")).pack(
+            anchor="w", padx=10, pady=(2, 2)
+        )
         self.slot_type_menu = ctk.CTkOptionMenu(
-            self.edit_frame,
-            values=SLOT_TYPES,
-            height=28,
-            command=self._on_slot_type_selected
+            self.edit_frame, values=SLOT_TYPES, height=28, command=self._on_slot_type_selected
         )
         self.slot_type_menu.pack(fill="x", padx=10, pady=(0, 8))
 
@@ -419,25 +454,18 @@ class LayoutEditorWindow(ctk.CTkToplevel):
             fg_color=Theme.BTN_DANGER[0],
             hover_color=Theme.BTN_DANGER[1],
             height=28,
-            command=self._delete_selected_slot
+            command=self._delete_selected_slot,
         ).pack(fill="x", padx=10, pady=(2, 10))
 
         # SLOTS LIST IN ACTIVE LAYOUT
         list_header = ctk.CTkFrame(parent, fg_color="transparent")
         list_header.pack(fill="x", padx=12, pady=(12, 4))
 
-        ctk.CTkLabel(
-            list_header,
-            text="All Slots in this Layout:",
-            font=ctk.CTkFont(size=13, weight="bold")
-        ).pack(side="left")
-
-        self.slots_count_lbl = ctk.CTkLabel(
-            list_header,
-            text="0 slots",
-            font=ctk.CTkFont(size=11),
-            text_color="gray70"
+        ctk.CTkLabel(list_header, text="All Slots in this Layout:", font=ctk.CTkFont(size=13, weight="bold")).pack(
+            side="left"
         )
+
+        self.slots_count_lbl = ctk.CTkLabel(list_header, text="0 slots", font=ctk.CTkFont(size=11), text_color="gray70")
         self.slots_count_lbl.pack(side="right")
 
         self.slots_scroll = ctk.CTkScrollableFrame(parent)
@@ -452,15 +480,11 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         is_bundled = active_layout.get("bundled", self.current_layout_key in BUILTIN_SHIPPED_LAYOUTS)
         status = LayoutStatus.determine(is_bundled, is_mod)
 
-        badge_fg = {
-            LayoutStatus.MODIFIED: "#8f4a2d",
-            LayoutStatus.BUNDLED: "#3d342a",
-            LayoutStatus.CUSTOM: "#2b3e50"
-        }
+        badge_fg = {LayoutStatus.MODIFIED: "#8f4a2d", LayoutStatus.BUNDLED: "#3d342a", LayoutStatus.CUSTOM: "#2b3e50"}
         self.scope_badge.configure(
             text=status.badge_text,
             fg_color=badge_fg.get(status, "#3d342a"),
-            text_color="#ffffff" if status == LayoutStatus.MODIFIED else "#c2b6a4"
+            text_color="#ffffff" if status == LayoutStatus.MODIFIED else "#c2b6a4",
         )
 
         # Do not show Delete icon/button on bundled templates; only show on custom templates
@@ -521,11 +545,7 @@ class LayoutEditorWindow(ctk.CTkToplevel):
             self.edition.custom_layouts[self.current_layout_key] = copy.deepcopy(active_layout)
 
         # Generate wireframe mask for this layout
-        generate_wireframe_mask_for_layout(
-            self.current_layout_key,
-            active_layout,
-            base_dir=self.base_dir
-        )
+        generate_wireframe_mask_for_layout(self.current_layout_key, active_layout, base_dir=self.base_dir)
 
         # If checkbox is checked, also save to global template
         saved_globally = False
@@ -543,7 +563,7 @@ class LayoutEditorWindow(ctk.CTkToplevel):
             "Saved to Issue",
             f"Layout slots for '{active_layout.get('label', self.current_layout_key)}' saved directly to this newspaper issue.{glob_msg}\n\n"
             "These custom slots will be preserved in your .prophet project file and used for rendering and exports.",
-            parent=self
+            parent=self,
         )
 
     def _export_template_package(self):
@@ -560,8 +580,8 @@ class LayoutEditorWindow(ctk.CTkToplevel):
             filetypes=[
                 ("The Daily Prophet Template Package (*.prophettemplate)", "*.prophettemplate"),
                 ("Legacy Compatibility Template v1.0 (*.prophettemplate)", "*.prophettemplate"),
-                ("All Files", "*.*")
-            ]
+                ("All Files", "*.*"),
+            ],
         )
         if out_path:
             try:
@@ -570,12 +590,12 @@ class LayoutEditorWindow(ctk.CTkToplevel):
                     active_layout,
                     out_path,
                     target_version=CURRENT_TEMPLATE_VERSION,
-                    base_dir=self.base_dir
+                    base_dir=self.base_dir,
                 )
                 messagebox.showinfo(
                     "Export Successful",
                     f"Template packaged successfully as a single self-contained file (v{CURRENT_TEMPLATE_VERSION}):\n\n{os.path.basename(pkg_file)}",
-                    parent=self
+                    parent=self,
                 )
             except Exception as e:
                 messagebox.showerror("Export Error", f"Failed to export template package: {e}", parent=self)
@@ -585,7 +605,7 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         in_path = filedialog.askopenfilename(
             parent=self,
             title="Import .prophettemplate File",
-            filetypes=[("The Daily Prophet Template Package", "*.prophettemplate"), ("All Files", "*.*")]
+            filetypes=[("The Daily Prophet Template Package", "*.prophettemplate"), ("All Files", "*.*")],
         )
         if in_path:
             try:
@@ -612,7 +632,7 @@ class LayoutEditorWindow(ctk.CTkToplevel):
                 messagebox.showinfo(
                     "Import Complete",
                     f"Template '{loaded_def.get('label', tid)}' imported and activated successfully!",
-                    parent=self
+                    parent=self,
                 )
             except Exception as e:
                 messagebox.showerror("Import Error", f"Failed to import template package: {e}", parent=self)
@@ -639,11 +659,7 @@ class LayoutEditorWindow(ctk.CTkToplevel):
             return
 
         # Rebuild wireframe mask
-        generate_wireframe_mask_for_layout(
-            self.current_layout_key,
-            active_layout,
-            base_dir=self.base_dir
-        )
+        generate_wireframe_mask_for_layout(self.current_layout_key, active_layout, base_dir=self.base_dir)
 
         if callable(self.on_global_change):
             self.on_global_change()
@@ -655,7 +671,7 @@ class LayoutEditorWindow(ctk.CTkToplevel):
                 f"Saved to assets/templates/installed/{self.current_layout_key}.prophettemplate\n"
                 f"(A backup copy is preserved as {self.current_layout_key}.prophettemplate.bak).\n\n"
                 "All new issues using this layout will automatically use these updated slots.",
-                parent=self
+                parent=self,
             )
 
     def _reset_project_slots(self, dialog: ctk.CTkToplevel):
@@ -673,7 +689,7 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         confirm = messagebox.askyesno(
             "Confirm Factory Reset",
             "This will restore all shipped templates from the factory source defaults. Any global edits will be reset. Proceed?",
-            parent=dialog
+            parent=dialog,
         )
         if not confirm:
             return
@@ -687,7 +703,9 @@ class LayoutEditorWindow(ctk.CTkToplevel):
             if callable(self.on_global_change):
                 self.on_global_change()
             dialog.destroy()
-            messagebox.showinfo("Factory Reset Complete", "Global templates restored to original factory defaults.", parent=self)
+            messagebox.showinfo(
+                "Factory Reset Complete", "Global templates restored to original factory defaults.", parent=self
+            )
         except Exception as e:
             messagebox.showerror("Error", f"Failed to restore factory defaults: {e}", parent=dialog)
 
@@ -707,17 +725,10 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         dialog.grab_set()
 
         ctk.CTkLabel(
-            dialog,
-            text="Reset Layout Slots",
-            font=ctk.CTkFont(family="Georgia", size=16, weight="bold")
+            dialog, text="Reset Layout Slots", font=ctk.CTkFont(family="Georgia", size=16, weight="bold")
         ).pack(anchor="w", padx=20, pady=(16, 8))
 
-        ctk.CTkLabel(
-            dialog,
-            text=msg,
-            justify="left",
-            wraplength=480
-        ).pack(anchor="w", padx=20, pady=8)
+        ctk.CTkLabel(dialog, text=msg, justify="left", wraplength=480).pack(anchor="w", padx=20, pady=8)
 
         btn_bar = ctk.CTkFrame(dialog, fg_color="transparent")
         btn_bar.pack(fill="x", padx=20, pady=(16, 10))
@@ -728,7 +739,7 @@ class LayoutEditorWindow(ctk.CTkToplevel):
                 text="Revert Issue Slots",
                 fg_color=Theme.BTN_DANGER[0],
                 hover_color=Theme.BTN_DANGER[1],
-                command=lambda: self._reset_project_slots(dialog)
+                command=lambda: self._reset_project_slots(dialog),
             ).pack(side="left", padx=4)
 
         ctk.CTkButton(
@@ -736,7 +747,7 @@ class LayoutEditorWindow(ctk.CTkToplevel):
             text="Restore Factory Defaults",
             fg_color=Theme.BTN_SECONDARY[0],
             hover_color=Theme.BTN_SECONDARY[1],
-            command=lambda: self._restore_factory_defaults(dialog)
+            command=lambda: self._restore_factory_defaults(dialog),
         ).pack(side="left", padx=4)
 
         ctk.CTkButton(
@@ -744,7 +755,7 @@ class LayoutEditorWindow(ctk.CTkToplevel):
             text="Cancel",
             fg_color=Theme.BTN_CONTROL[0],
             hover_color=Theme.BTN_CONTROL[1],
-            command=dialog.destroy
+            command=dialog.destroy,
         ).pack(side="right", padx=4)
 
     # ------------------ ADD / REMOVE CUSTOM TEMPLATES ------------------
@@ -753,7 +764,7 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         fn = filedialog.askopenfilename(
             title="Select Newspaper Background Page Image",
             filetypes=[("Image Files", "*.png;*.jpg;*.jpeg"), ("All Files", "*.*")],
-            parent=dialog
+            parent=dialog,
         )
         if not fn:
             return
@@ -769,31 +780,98 @@ class LayoutEditorWindow(ctk.CTkToplevel):
     @staticmethod
     def _generate_default_slots(w: int, h: int) -> list[dict]:
         return [
-            {'id': 'masthead_title', 'type': 'title', 'rect': [int(w * 0.1), int(h * 0.02), int(w * 0.8), int(h * 0.08)], 'label': 'Masthead Title'},
-            {'id': 'ear_left', 'type': 'ear_box', 'rect': [int(w * 0.03), int(h * 0.02), int(w * 0.06), int(h * 0.08)], 'label': 'Left Ear'},
-            {'id': 'ear_right', 'type': 'ear_box', 'rect': [int(w * 0.91), int(h * 0.02), int(w * 0.06), int(h * 0.08)], 'label': 'Right Ear'},
-            {'id': 'ticker_bar', 'type': 'ticker', 'rect': [int(w * 0.03), int(h * 0.11), int(w * 0.94), int(h * 0.03)], 'label': 'Ticker Bar'},
-            {'id': 'main_headline', 'type': 'headline', 'rect': [int(w * 0.03), int(h * 0.15), int(w * 0.94), int(h * 0.05)], 'label': 'Main Headline'},
-            {'id': 'hero_photo', 'type': 'photo', 'rect': [int(w * 0.25), int(h * 0.22), int(w * 0.5), int(h * 0.28)], 'label': 'Hero Center Photo'},
-            {'id': 'lead_body', 'type': 'body', 'rect': [int(w * 0.25), int(h * 0.51), int(w * 0.5), int(h * 0.16)], 'label': 'Hero Story Body'},
-            {'id': 'side_col_left', 'type': 'column', 'rect': [int(w * 0.03), int(h * 0.22), int(w * 0.2), int(h * 0.45)], 'label': 'Left Column'},
-            {'id': 'side_col_right', 'type': 'column', 'rect': [int(w * 0.77), int(h * 0.22), int(w * 0.2), int(h * 0.45)], 'label': 'Right Column'},
-            {'id': 'lore_box_1', 'type': 'lore', 'rect': [int(w * 0.03), int(h * 0.69), int(w * 0.3), int(h * 0.26)], 'label': 'Lower Notice 1'},
-            {'id': 'lore_box_2', 'type': 'lore', 'rect': [int(w * 0.35), int(h * 0.69), int(w * 0.3), int(h * 0.26)], 'label': 'Lower Notice 2'},
-            {'id': 'lore_box_3', 'type': 'lore', 'rect': [int(w * 0.67), int(h * 0.69), int(w * 0.3), int(h * 0.26)], 'label': 'Lower Notice 3'},
-            {'id': 'footer', 'type': 'footer', 'rect': [int(w * 0.03), int(h * 0.96), int(w * 0.94), int(h * 0.025)], 'label': 'Bottom Footer'}
+            {
+                "id": "masthead_title",
+                "type": "title",
+                "rect": [int(w * 0.1), int(h * 0.02), int(w * 0.8), int(h * 0.08)],
+                "label": "Masthead Title",
+            },
+            {
+                "id": "ear_left",
+                "type": "ear_box",
+                "rect": [int(w * 0.03), int(h * 0.02), int(w * 0.06), int(h * 0.08)],
+                "label": "Left Ear",
+            },
+            {
+                "id": "ear_right",
+                "type": "ear_box",
+                "rect": [int(w * 0.91), int(h * 0.02), int(w * 0.06), int(h * 0.08)],
+                "label": "Right Ear",
+            },
+            {
+                "id": "ticker_bar",
+                "type": "ticker",
+                "rect": [int(w * 0.03), int(h * 0.11), int(w * 0.94), int(h * 0.03)],
+                "label": "Ticker Bar",
+            },
+            {
+                "id": "main_headline",
+                "type": "headline",
+                "rect": [int(w * 0.03), int(h * 0.15), int(w * 0.94), int(h * 0.05)],
+                "label": "Main Headline",
+            },
+            {
+                "id": "hero_photo",
+                "type": "photo",
+                "rect": [int(w * 0.25), int(h * 0.22), int(w * 0.5), int(h * 0.28)],
+                "label": "Hero Center Photo",
+            },
+            {
+                "id": "lead_body",
+                "type": "body",
+                "rect": [int(w * 0.25), int(h * 0.51), int(w * 0.5), int(h * 0.16)],
+                "label": "Hero Story Body",
+            },
+            {
+                "id": "side_col_left",
+                "type": "column",
+                "rect": [int(w * 0.03), int(h * 0.22), int(w * 0.2), int(h * 0.45)],
+                "label": "Left Column",
+            },
+            {
+                "id": "side_col_right",
+                "type": "column",
+                "rect": [int(w * 0.77), int(h * 0.22), int(w * 0.2), int(h * 0.45)],
+                "label": "Right Column",
+            },
+            {
+                "id": "lore_box_1",
+                "type": "lore",
+                "rect": [int(w * 0.03), int(h * 0.69), int(w * 0.3), int(h * 0.26)],
+                "label": "Lower Notice 1",
+            },
+            {
+                "id": "lore_box_2",
+                "type": "lore",
+                "rect": [int(w * 0.35), int(h * 0.69), int(w * 0.3), int(h * 0.26)],
+                "label": "Lower Notice 2",
+            },
+            {
+                "id": "lore_box_3",
+                "type": "lore",
+                "rect": [int(w * 0.67), int(h * 0.69), int(w * 0.3), int(h * 0.26)],
+                "label": "Lower Notice 3",
+            },
+            {
+                "id": "footer",
+                "type": "footer",
+                "rect": [int(w * 0.03), int(h * 0.96), int(w * 0.94), int(h * 0.025)],
+                "label": "Bottom Footer",
+            },
         ]
 
     def _create_custom_template(self, label: str, raw_tid: str, img_path: str, dialog: ctk.CTkToplevel):
         if not label or not raw_tid or not img_path:
-            messagebox.showwarning("Missing Fields", "Please provide a name, identifier, and image path.", parent=dialog)
+            messagebox.showwarning(
+                "Missing Fields", "Please provide a name, identifier, and image path.", parent=dialog
+            )
             return
 
         if not os.path.isfile(img_path):
             messagebox.showerror("File Error", f"Image file not found: {img_path}", parent=dialog)
             return
 
-        tid = "".join(c if c.isalnum() or c == '_' else '_' for c in raw_tid.lower())
+        tid = "".join(c if c.isalnum() or c == "_" else "_" for c in raw_tid.lower())
         if tid in self.layouts_data:
             messagebox.showerror("Conflict", f"A template with ID '{tid}' already exists.", parent=dialog)
             return
@@ -816,11 +894,11 @@ class LayoutEditorWindow(ctk.CTkToplevel):
             rel_page_file = img_path
 
         new_layout_def = {
-            'page_file': rel_page_file,
-            'width': w,
-            'height': h,
-            'label': label,
-            'slots': self._generate_default_slots(w, h)
+            "page_file": rel_page_file,
+            "width": w,
+            "height": h,
+            "label": label,
+            "slots": self._generate_default_slots(w, h),
         }
 
         self.global_layouts[tid] = new_layout_def
@@ -840,7 +918,7 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         messagebox.showinfo(
             "Success",
             f"Custom template '{label}' created as '{tid}.prophettemplate' and opened in editor!",
-            parent=self
+            parent=self,
         )
 
     def _show_add_template_dialog(self):
@@ -852,16 +930,16 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         dialog.grab_set()
 
         ctk.CTkLabel(
-            dialog,
-            text="Add New Custom Template",
-            font=ctk.CTkFont(family="Georgia", size=16, weight="bold")
+            dialog, text="Add New Custom Template", font=ctk.CTkFont(family="Georgia", size=16, weight="bold")
         ).pack(anchor="w", padx=20, pady=(16, 8))
 
         ctk.CTkLabel(dialog, text="Template Display Name:").pack(anchor="w", padx=20, pady=(4, 2))
         name_entry = ctk.CTkEntry(dialog, placeholder_text="e.g., Evening Special Broadsheet")
         name_entry.pack(fill="x", padx=20, pady=(0, 8))
 
-        ctk.CTkLabel(dialog, text="Template Identifier (letters, numbers, underscores):").pack(anchor="w", padx=20, pady=(4, 2))
+        ctk.CTkLabel(dialog, text="Template Identifier (letters, numbers, underscores):").pack(
+            anchor="w", padx=20, pady=(4, 2)
+        )
         id_entry = ctk.CTkEntry(dialog, placeholder_text="e.g., custom_evening_1")
         id_entry.pack(fill="x", padx=20, pady=(0, 8))
 
@@ -876,10 +954,15 @@ class LayoutEditorWindow(ctk.CTkToplevel):
             img_row,
             text="Browse...",
             width=90,
-            command=lambda: self._browse_template_image(dialog, img_entry, id_entry, name_entry)
+            command=lambda: self._browse_template_image(dialog, img_entry, id_entry, name_entry),
         ).pack(side="right")
 
-        dim_lbl = ctk.CTkLabel(dialog, text="Dimensions: Will be automatically detected from image.", font=ctk.CTkFont(size=11), text_color="gray70")
+        dim_lbl = ctk.CTkLabel(
+            dialog,
+            text="Dimensions: Will be automatically detected from image.",
+            font=ctk.CTkFont(size=11),
+            text_color="gray70",
+        )
         dim_lbl.pack(anchor="w", padx=20, pady=4)
 
         action_row = ctk.CTkFrame(dialog, fg_color="transparent")
@@ -891,11 +974,8 @@ class LayoutEditorWindow(ctk.CTkToplevel):
             fg_color=Theme.BTN_SUCCESS[0],
             hover_color=Theme.BTN_SUCCESS[1],
             command=lambda: self._create_custom_template(
-                name_entry.get().strip(),
-                id_entry.get().strip(),
-                img_entry.get().strip(),
-                dialog
-            )
+                name_entry.get().strip(), id_entry.get().strip(), img_entry.get().strip(), dialog
+            ),
         ).pack(side="left", padx=4)
 
         ctk.CTkButton(
@@ -903,7 +983,7 @@ class LayoutEditorWindow(ctk.CTkToplevel):
             text="Cancel",
             fg_color=Theme.BTN_CONTROL[0],
             hover_color=Theme.BTN_CONTROL[1],
-            command=dialog.destroy
+            command=dialog.destroy,
         ).pack(side="right", padx=4)
 
     def _confirm_delete_template(self):
@@ -914,14 +994,14 @@ class LayoutEditorWindow(ctk.CTkToplevel):
                 "Cannot Delete Bundled Template",
                 f"'{self.current_layout_key}' is a pre-included bundled template and cannot be deleted.\n\n"
                 "You can freely modify its slots or click 'Reset' to restore factory defaults.",
-                parent=self
+                parent=self,
             )
             return
 
         confirm = messagebox.askyesno(
             "Confirm Delete Template",
             f"Are you sure you want to delete custom template '{self.current_layout_key}.prophettemplate'?\n\nThis cannot be undone.",
-            parent=self
+            parent=self,
         )
         if not confirm:
             return
@@ -1010,34 +1090,33 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         x2, y2 = self._orig_to_canvas(rx + rw, ry + rh)
 
         border_color, _ = SLOT_COLORS.get(stype, ("#505050", "#FFFFFF"))
-        is_selected = (idx == self.selected_slot_index)
+        is_selected = idx == self.selected_slot_index
 
         line_width = 3 if is_selected else 2
         line_color = "#FFD700" if is_selected else border_color
 
         # Box outline
-        self.canvas.create_rectangle(
-            x1, y1, x2, y2,
-            outline=line_color,
-            width=line_width,
-            tags=("slot", f"slot_{idx}")
-        )
+        self.canvas.create_rectangle(x1, y1, x2, y2, outline=line_color, width=line_width, tags=("slot", f"slot_{idx}"))
 
         # Label tag
         tag_text = f"[{stype.upper()}] {slabel}"
         self.canvas.create_rectangle(
-            x1 + 1, y1 + 1, x1 + min(rw * self.zoom_level - 2, len(tag_text) * 7.5 + 8), y1 + 16,
+            x1 + 1,
+            y1 + 1,
+            x1 + min(rw * self.zoom_level - 2, len(tag_text) * 7.5 + 8),
+            y1 + 16,
             fill="#111111",
             outline=line_color,
-            tags=("slot", f"slot_{idx}")
+            tags=("slot", f"slot_{idx}"),
         )
         self.canvas.create_text(
-            x1 + 4, y1 + 8,
+            x1 + 4,
+            y1 + 8,
             text=tag_text,
             anchor="w",
             fill="#FFFFFF" if not is_selected else "#FFD700",
             font=("Arial", max(8, int(9 * self.zoom_level)), "bold"),
-            tags=("slot", f"slot_{idx}")
+            tags=("slot", f"slot_{idx}"),
         )
 
     def _draw_selection_handles(self, slot):
@@ -1048,18 +1127,20 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         ym = (y1 + y2) / 2
 
         handles = {
-            "nw": (x1, y1), "n": (xm, y1), "ne": (x2, y1),
-            "w": (x1, ym),                 "e": (x2, ym),
-            "sw": (x1, y2), "s": (xm, y2), "se": (x2, y2)
+            "nw": (x1, y1),
+            "n": (xm, y1),
+            "ne": (x2, y1),
+            "w": (x1, ym),
+            "e": (x2, ym),
+            "sw": (x1, y2),
+            "s": (xm, y2),
+            "se": (x2, y2),
         }
 
         hs = 4
         for name, (hx, hy) in handles.items():
             self.canvas.create_rectangle(
-                hx - hs, hy - hs, hx + hs, hy + hs,
-                fill="#FFD700",
-                outline="#000000",
-                tags=("handle", f"handle_{name}")
+                hx - hs, hy - hs, hx + hs, hy + hs, fill="#FFD700", outline="#000000", tags=("handle", f"handle_{name}")
             )
 
     # ------------------ MOUSE / CANVAS INTERACTION ------------------
@@ -1073,14 +1154,14 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         self.drag_start_y = oy
 
         # Draw Mode
-        if self.drag_mode == 'drawing':
+        if self.drag_mode == "drawing":
             self.drawing_rect = [ox, oy, 10, 10]
             return
 
         # Check Resize Handle
         handle = self._get_handle_under_pos(cx, cy)
         if handle and self.selected_slot_index is not None:
-            self.drag_mode = 'resize'
+            self.drag_mode = "resize"
             self.resize_handle = handle
             slots = self.layouts_data[self.current_layout_key]["slots"]
             self.orig_rect = list(slots[self.selected_slot_index]["rect"])
@@ -1090,7 +1171,7 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         hit_idx = self._get_slot_under_pos(ox, oy)
         if hit_idx is not None:
             self._select_slot_by_index(hit_idx)
-            self.drag_mode = 'move'
+            self.drag_mode = "move"
             slots = self.layouts_data[self.current_layout_key]["slots"]
             self.orig_rect = list(slots[hit_idx]["rect"])
         else:
@@ -1110,7 +1191,7 @@ class LayoutEditorWindow(ctk.CTkToplevel):
 
         slots = self.layouts_data[self.current_layout_key]["slots"]
 
-        if self.drag_mode == 'move' and self.selected_slot_index is not None and self.orig_rect:
+        if self.drag_mode == "move" and self.selected_slot_index is not None and self.orig_rect:
             x, y, w, h = self.orig_rect
             nx = max(0, x + dx)
             ny = max(0, y + dy)
@@ -1118,31 +1199,31 @@ class LayoutEditorWindow(ctk.CTkToplevel):
             self._update_coords_display([nx, ny, w, h])
             self._refresh_canvas()
 
-        elif self.drag_mode == 'resize' and self.selected_slot_index is not None and self.orig_rect:
+        elif self.drag_mode == "resize" and self.selected_slot_index is not None and self.orig_rect:
             x, y, w, h = self.orig_rect
             x2 = x + w
             y2 = y + h
 
             h_type = self.resize_handle
-            if 'w' in h_type:
+            if "w" in h_type:
                 nx = min(x + dx, x2 - 20)
                 w = x2 - nx
                 x = nx
-            elif 'e' in h_type:
+            elif "e" in h_type:
                 w = max(20, w + dx)
 
-            if 'n' in h_type:
+            if "n" in h_type:
                 ny = min(y + dy, y2 - 20)
                 h = y2 - ny
                 y = ny
-            elif 's' in h_type:
+            elif "s" in h_type:
                 h = max(20, h + dy)
 
             slots[self.selected_slot_index]["rect"] = [x, y, w, h]
             self._update_coords_display([x, y, w, h])
             self._refresh_canvas()
 
-        elif self.drag_mode == 'drawing':
+        elif self.drag_mode == "drawing":
             rx = min(self.drag_start_x, ox)
             ry = min(self.drag_start_y, oy)
             rw = max(10, abs(ox - self.drag_start_x))
@@ -1153,23 +1234,21 @@ class LayoutEditorWindow(ctk.CTkToplevel):
             c_x1, c_y1 = self._orig_to_canvas(rx, ry)
             c_x2, c_y2 = self._orig_to_canvas(rx + rw, ry + rh)
             self.canvas.create_rectangle(
-                c_x1, c_y1, c_x2, c_y2,
-                outline="#4DFF88", width=2, dash=(4, 2),
-                tags="draw_preview"
+                c_x1, c_y1, c_x2, c_y2, outline="#4DFF88", width=2, dash=(4, 2), tags="draw_preview"
             )
 
     def _on_canvas_release(self, event):
-        if self.drag_mode == 'drawing' and self.drawing_rect:
+        if self.drag_mode == "drawing" and self.drawing_rect:
             rx, ry, rw, rh = self.drawing_rect
             self.canvas.delete("draw_preview")
             if rw >= 20 and rh >= 20:
                 slots = self.layouts_data[self.current_layout_key]["slots"]
                 new_idx = len(slots) + 1
                 new_slot = {
-                    'id': f'custom_slot_{new_idx}',
-                    'type': 'column',
-                    'rect': [rx, ry, rw, rh],
-                    'label': f'Custom Slot {new_idx}'
+                    "id": f"custom_slot_{new_idx}",
+                    "type": "column",
+                    "rect": [rx, ry, rw, rh],
+                    "label": f"Custom Slot {new_idx}",
                 }
                 slots.append(new_slot)
                 self.selected_slot_index = len(slots) - 1
@@ -1189,13 +1268,17 @@ class LayoutEditorWindow(ctk.CTkToplevel):
 
         if handle:
             cursors = {
-                'nw': 'size_nw_se', 'se': 'size_nw_se',
-                'ne': 'size_ne_sw', 'sw': 'size_ne_sw',
-                'n': 'size_ns',     's': 'size_ns',
-                'w': 'size_we',     'e': 'size_we'
+                "nw": "size_nw_se",
+                "se": "size_nw_se",
+                "ne": "size_ne_sw",
+                "sw": "size_ne_sw",
+                "n": "size_ns",
+                "s": "size_ns",
+                "w": "size_we",
+                "e": "size_we",
             }
             self.canvas.config(cursor=cursors.get(handle, "arrow"))
-        elif self.drag_mode == 'drawing':
+        elif self.drag_mode == "drawing":
             self.canvas.config(cursor="crosshair")
         else:
             ox, oy = self._canvas_to_orig(cx, cy)
@@ -1217,9 +1300,14 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         ym = (y1 + y2) / 2
 
         handles = {
-            "nw": (x1, y1), "n": (xm, y1), "ne": (x2, y1),
-            "w": (x1, ym),                 "e": (x2, ym),
-            "sw": (x1, y2), "s": (xm, y2), "se": (x2, y2)
+            "nw": (x1, y1),
+            "n": (xm, y1),
+            "ne": (x2, y1),
+            "w": (x1, ym),
+            "e": (x2, ym),
+            "sw": (x1, y2),
+            "s": (xm, y2),
+            "se": (x2, y2),
         }
         for name, (hx, hy) in handles.items():
             if abs(cx - hx) <= 8 and abs(cy - hy) <= 8:
@@ -1358,11 +1446,15 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         self._refresh_canvas()
 
     def _activate_draw_mode(self):
-        self.drag_mode = 'drawing'
+        self.drag_mode = "drawing"
         self.selected_slot_index = None
         self._clear_inspector()
         self._refresh_canvas()
-        messagebox.showinfo("Draw Slot", "Click and drag anywhere on the parchment canvas to draw a new content slot bounding box.", parent=self)
+        messagebox.showinfo(
+            "Draw Slot",
+            "Click and drag anywhere on the parchment canvas to draw a new content slot bounding box.",
+            parent=self,
+        )
 
     def _refresh_slots_list(self):
         for widget in self.slots_scroll.winfo_children():
@@ -1382,7 +1474,14 @@ class LayoutEditorWindow(ctk.CTkToplevel):
             item_frame.pack(fill="x", pady=2)
 
             color_badge, _ = SLOT_COLORS.get(stype, ("#555555", "#FFFFFF"))
-            badge = ctk.CTkLabel(item_frame, text=f" {stype.upper()[:4]} ", fg_color=color_badge, text_color="#FFFFFF", font=ctk.CTkFont(size=9, weight="bold"), corner_radius=3)
+            badge = ctk.CTkLabel(
+                item_frame,
+                text=f" {stype.upper()[:4]} ",
+                fg_color=color_badge,
+                text_color="#FFFFFF",
+                font=ctk.CTkFont(size=9, weight="bold"),
+                corner_radius=3,
+            )
             badge.pack(side="left", padx=4, pady=4)
 
             btn = ctk.CTkButton(
@@ -1392,7 +1491,7 @@ class LayoutEditorWindow(ctk.CTkToplevel):
                 anchor="w",
                 fg_color="transparent",
                 hover_color="#3d342a",
-                command=lambda i=idx: self._select_slot_by_index(i)
+                command=lambda i=idx: self._select_slot_by_index(i),
             )
             btn.pack(side="left", fill="x", expand=True, padx=4)
             self.slot_btn_items.append(item_frame)
@@ -1409,13 +1508,15 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         self._refresh_canvas()
 
 
-def open_layout_editor(initial_layout="layout_1", edition=None, on_project_save=None, on_global_change=None, base_dir="."):
+def open_layout_editor(
+    initial_layout="layout_1", edition=None, on_project_save=None, on_global_change=None, base_dir="."
+):
     """Convenience launcher for the Layout Slot Editor window."""
     editor = LayoutEditorWindow(
         initial_layout=initial_layout,
         edition=edition,
         on_project_save=on_project_save,
         on_global_change=on_global_change,
-        base_dir=base_dir
+        base_dir=base_dir,
     )
     return editor

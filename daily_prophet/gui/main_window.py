@@ -1,4 +1,5 @@
 """Main application window for The Daily Prophet generator."""
+
 from __future__ import annotations
 import sys
 import os
@@ -35,6 +36,7 @@ class MainWindow(ctk.CTk):
         if sys.platform == "win32":
             try:
                 import ctypes
+
                 ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("ca.zandercraft.dailyprophet.editor")
             except Exception:
                 pass
@@ -216,7 +218,7 @@ class MainWindow(ctk.CTk):
             font=ctk.CTkFont(size=10, weight="bold"),
             fg_color=Theme.BTN_SUCCESS[0],
             hover_color=Theme.BTN_SUCCESS[1],
-            command=self._add_new_page
+            command=self._add_new_page,
         ).pack(side="left", padx=2)
 
         self.del_page_btn = ctk.CTkButton(
@@ -229,7 +231,7 @@ class MainWindow(ctk.CTk):
             font=ctk.CTkFont(size=10),
             fg_color=Theme.BTN_DANGER[0],
             hover_color=Theme.BTN_DANGER[1],
-            command=self._delete_current_page
+            command=self._delete_current_page,
         )
         self.del_page_btn.pack(side="left", padx=2)
 
@@ -243,7 +245,7 @@ class MainWindow(ctk.CTk):
             image=IconManager.get_icon("layout-grid", size=13),
             compound="left",
             font=ctk.CTkFont(family="Georgia", size=11, weight="bold"),
-            text_color=Theme.TEXT_PARCHMENT
+            text_color=Theme.TEXT_PARCHMENT,
         ).pack(side="left", padx=(0, 4))
 
         self.layout_map: Dict[str, str] = {}
@@ -256,7 +258,7 @@ class MainWindow(ctk.CTk):
             font=ctk.CTkFont(size=10),
             fg_color=Theme.BTN_SECONDARY[0],
             button_color=Theme.BTN_SECONDARY[1],
-            command=self._on_layout_template_changed
+            command=self._on_layout_template_changed,
         )
         self.template_selector.pack(side="left", padx=2)
 
@@ -270,7 +272,7 @@ class MainWindow(ctk.CTk):
             font=ctk.CTkFont(size=10),
             fg_color=Theme.BTN_NEUTRAL[0],
             hover_color=Theme.BTN_NEUTRAL[1],
-            command=self._open_layout_editor
+            command=self._open_layout_editor,
         ).pack(side="left", padx=2)
 
         # Three-Pane Workspace
@@ -286,10 +288,7 @@ class MainWindow(ctk.CTk):
         nav_header.pack(fill="x", padx=10, pady=(8, 4))
 
         self.page_stories_lbl = ctk.CTkLabel(
-            nav_header,
-            text="Page Stories:",
-            font=ctk.CTkFont(size=12, weight="bold"),
-            text_color=Theme.TEXT_PARCHMENT
+            nav_header, text="Page Stories:", font=ctk.CTkFont(size=12, weight="bold"), text_color=Theme.TEXT_PARCHMENT
         )
         self.page_stories_lbl.pack(side="left")
 
@@ -303,7 +302,7 @@ class MainWindow(ctk.CTk):
             font=ctk.CTkFont(size=10, weight="bold"),
             fg_color=Theme.BTN_PRIMARY[0],
             hover_color=Theme.BTN_PRIMARY[1],
-            command=self._add_story
+            command=self._add_story,
         ).pack(side="right")
 
         self.stories_scroll = ctk.CTkScrollableFrame(self.left_pane, fg_color="transparent")
@@ -313,16 +312,56 @@ class MainWindow(ctk.CTk):
         nav_tools = ctk.CTkFrame(self.left_pane, fg_color="transparent")
         nav_tools.pack(fill="x", padx=6, pady=(4, 8))
 
-        ctk.CTkButton(nav_tools, text=" Up", image=IconManager.get_icon("arrow-up", size=11), compound="left", width=55, height=24, font=ctk.CTkFont(size=10), fg_color=Theme.BTN_CONTROL[0], hover_color=Theme.BTN_CONTROL[1], command=self._move_story_up).pack(side="left", padx=1)
-        ctk.CTkButton(nav_tools, text=" Down", image=IconManager.get_icon("arrow-down", size=11), compound="left", width=65, height=24, font=ctk.CTkFont(size=10), fg_color=Theme.BTN_CONTROL[0], hover_color=Theme.BTN_CONTROL[1], command=self._move_story_down).pack(side="left", padx=1)
-        ctk.CTkButton(nav_tools, text=" Move...", width=65, height=24, font=ctk.CTkFont(size=10), fg_color=Theme.BTN_SECONDARY[0], hover_color=Theme.BTN_SECONDARY[1], command=self._move_story_to_page_dialog).pack(side="left", padx=1)
-        ctk.CTkButton(nav_tools, text=" Del", image=IconManager.get_icon("trash-2", size=11), compound="left", width=50, height=24, font=ctk.CTkFont(size=10), fg_color=Theme.BTN_DANGER[0], hover_color=Theme.BTN_DANGER[1], command=self._delete_selected_story).pack(side="right", padx=1)
+        ctk.CTkButton(
+            nav_tools,
+            text=" Up",
+            image=IconManager.get_icon("arrow-up", size=11),
+            compound="left",
+            width=55,
+            height=24,
+            font=ctk.CTkFont(size=10),
+            fg_color=Theme.BTN_CONTROL[0],
+            hover_color=Theme.BTN_CONTROL[1],
+            command=self._move_story_up,
+        ).pack(side="left", padx=1)
+        ctk.CTkButton(
+            nav_tools,
+            text=" Down",
+            image=IconManager.get_icon("arrow-down", size=11),
+            compound="left",
+            width=65,
+            height=24,
+            font=ctk.CTkFont(size=10),
+            fg_color=Theme.BTN_CONTROL[0],
+            hover_color=Theme.BTN_CONTROL[1],
+            command=self._move_story_down,
+        ).pack(side="left", padx=1)
+        ctk.CTkButton(
+            nav_tools,
+            text=" Move...",
+            width=65,
+            height=24,
+            font=ctk.CTkFont(size=10),
+            fg_color=Theme.BTN_SECONDARY[0],
+            hover_color=Theme.BTN_SECONDARY[1],
+            command=self._move_story_to_page_dialog,
+        ).pack(side="left", padx=1)
+        ctk.CTkButton(
+            nav_tools,
+            text=" Del",
+            image=IconManager.get_icon("trash-2", size=11),
+            compound="left",
+            width=50,
+            height=24,
+            font=ctk.CTkFont(size=10),
+            fg_color=Theme.BTN_DANGER[0],
+            hover_color=Theme.BTN_DANGER[1],
+            command=self._delete_selected_story,
+        ).pack(side="right", padx=1)
 
         # 2. CENTER PANE: Article Composer
         self.center_composer = StoryComposer(
-            self.workspace,
-            on_story_updated=self._on_composer_story_updated,
-            base_dir=self.base_dir
+            self.workspace, on_story_updated=self._on_composer_story_updated, base_dir=self.base_dir
         )
         self.center_composer.pack(side="left", fill="both", expand=True, padx=4)
 
@@ -337,7 +376,7 @@ class MainWindow(ctk.CTk):
             on_slot_clicked=self._on_slot_clicked_on_canvas,
             on_page_changed=self._on_preview_page_flipped,
             on_detach_requested=self._toggle_preview_detachment,
-            is_detached=False
+            is_detached=False,
         )
         self.preview_canvas.pack(fill="both", expand=True)
 
@@ -392,7 +431,9 @@ class MainWindow(ctk.CTk):
         # MASTHEAD SECTION
         m_frame = ctk.CTkFrame(scroll)
         m_frame.pack(fill="x", pady=6)
-        ctk.CTkLabel(m_frame, text="Masthead & Header", font=ctk.CTkFont(size=14, weight="bold")).pack(anchor="w", padx=12, pady=(10, 4))
+        ctk.CTkLabel(m_frame, text="Masthead & Header", font=ctk.CTkFont(size=14, weight="bold")).pack(
+            anchor="w", padx=12, pady=(10, 4)
+        )
 
         ctk.CTkLabel(m_frame, text="Newspaper Title:").pack(anchor="w", padx=12, pady=(4, 2))
         self.title_entry = ctk.CTkEntry(m_frame)
@@ -409,7 +450,9 @@ class MainWindow(ctk.CTk):
         # DATE, ISSUE & EARS
         meta_row = ctk.CTkFrame(scroll)
         meta_row.pack(fill="x", pady=6)
-        ctk.CTkLabel(meta_row, text="Ear Boxes & Issue Metadata", font=ctk.CTkFont(size=14, weight="bold")).pack(anchor="w", padx=12, pady=(10, 4))
+        ctk.CTkLabel(meta_row, text="Ear Boxes & Issue Metadata", font=ctk.CTkFont(size=14, weight="bold")).pack(
+            anchor="w", padx=12, pady=(10, 4)
+        )
 
         r1 = ctk.CTkFrame(meta_row, fg_color="transparent")
         r1.pack(fill="x", padx=12, pady=(4, 6))
@@ -456,7 +499,9 @@ class MainWindow(ctk.CTk):
         # QUOTES & BANNERS
         banner_frame = ctk.CTkFrame(scroll)
         banner_frame.pack(fill="x", pady=6)
-        ctk.CTkLabel(banner_frame, text="Quotes, Lore & Banners", font=ctk.CTkFont(size=14, weight="bold")).pack(anchor="w", padx=12, pady=(10, 4))
+        ctk.CTkLabel(banner_frame, text="Quotes, Lore & Banners", font=ctk.CTkFont(size=14, weight="bold")).pack(
+            anchor="w", padx=12, pady=(10, 4)
+        )
 
         q_row = ctk.CTkFrame(banner_frame, fg_color="transparent")
         q_row.pack(fill="x", padx=12, pady=(4, 6))
@@ -484,7 +529,9 @@ class MainWindow(ctk.CTk):
         # THEME
         theme_frame = ctk.CTkFrame(scroll)
         theme_frame.pack(fill="x", pady=6)
-        ctk.CTkLabel(theme_frame, text="Broadsheet Styling", font=ctk.CTkFont(size=14, weight="bold")).pack(anchor="w", padx=12, pady=(10, 4))
+        ctk.CTkLabel(theme_frame, text="Broadsheet Styling", font=ctk.CTkFont(size=14, weight="bold")).pack(
+            anchor="w", padx=12, pady=(10, 4)
+        )
 
         t_row = ctk.CTkFrame(theme_frame, fg_color="transparent")
         t_row.pack(fill="x", padx=12, pady=(0, 10))
@@ -517,7 +564,7 @@ class MainWindow(ctk.CTk):
             return
 
         for idx, page in enumerate(pages):
-            is_active = (idx == self.current_page_idx)
+            is_active = idx == self.current_page_idx
             btn_fg = Theme.BTN_PRIMARY[0] if is_active else Theme.HEADER_BG
             btn_hover = Theme.BTN_PRIMARY[1] if is_active else "#3e3227"
             font_weight = "bold" if is_active else "normal"
@@ -529,7 +576,7 @@ class MainWindow(ctk.CTk):
                 fg_color=btn_fg,
                 hover_color=btn_hover,
                 height=26,
-                command=lambda p_idx=idx: self._on_page_tab_clicked(p_idx)
+                command=lambda p_idx=idx: self._on_page_tab_clicked(p_idx),
             )
             tab_btn.pack(side="left", padx=2)
 
@@ -562,7 +609,9 @@ class MainWindow(ctk.CTk):
     def _delete_current_page(self):
         if len(self.edition.pages) <= 1:
             return
-        if messagebox.askyesno("Delete Page", f"Delete Page {self.current_page_idx + 1} and its assigned stories?", parent=self):
+        if messagebox.askyesno(
+            "Delete Page", f"Delete Page {self.current_page_idx + 1} and its assigned stories?", parent=self
+        ):
             self.edition.remove_page(self.current_page_idx)
             self.current_page_idx = max(0, self.current_page_idx - 1)
             self._refresh_page_tabs()
@@ -583,7 +632,11 @@ class MainWindow(ctk.CTk):
 
         ctk.CTkLabel(dialog, text="Select Target Page:", font=ctk.CTkFont(size=12, weight="bold")).pack(pady=(16, 8))
 
-        page_options = [f"Page {p.page_number}: {p.title}" for idx, p in enumerate(self.edition.pages) if idx != self.current_page_idx]
+        page_options = [
+            f"Page {p.page_number}: {p.title}"
+            for idx, p in enumerate(self.edition.pages)
+            if idx != self.current_page_idx
+        ]
         choice_var = ctk.StringVar(value=page_options[0] if page_options else "")
         ctk.CTkOptionMenu(dialog, variable=choice_var, values=page_options, width=240).pack(pady=8)
 
@@ -600,7 +653,13 @@ class MainWindow(ctk.CTk):
             self._update_preview()
             self.status_lbl.configure(text=f"Moved story to Page {target_page_idx + 1}.")
 
-        ctk.CTkButton(dialog, text="Move Story", fg_color=Theme.BTN_PRIMARY[0], hover_color=Theme.BTN_PRIMARY[1], command=_confirm_move).pack(pady=12)
+        ctk.CTkButton(
+            dialog,
+            text="Move Story",
+            fg_color=Theme.BTN_PRIMARY[0],
+            hover_color=Theme.BTN_PRIMARY[1],
+            command=_confirm_move,
+        ).pack(pady=12)
 
     # -----------------------------------------------------------------------
     # Story List & Composer Synchronization
@@ -619,7 +678,7 @@ class MainWindow(ctk.CTk):
                 text="No stories on this page.\nClick 'Add' above or insert lorem ipsum.",
                 font=ctk.CTkFont(size=11),
                 text_color="gray60",
-                justify="center"
+                justify="center",
             ).pack(pady=30)
             self.center_composer.load_story(None)
             return
@@ -672,7 +731,7 @@ class MainWindow(ctk.CTk):
                 image=IconManager.get_icon("image", size=11),
                 compound="left",
                 font=ctk.CTkFont(size=9),
-                text_color=Theme.TEXT_MUTED
+                text_color=Theme.TEXT_MUTED,
             ).pack(side="left", padx=6)
 
         headline_lbl = ctk.CTkLabel(
@@ -680,7 +739,7 @@ class MainWindow(ctk.CTk):
             text=story.headline or "[Untitled Headline]",
             font=ctk.CTkFont(family="Georgia", size=11, weight="bold"),
             anchor="w",
-            justify="left"
+            justify="left",
         )
         headline_lbl.pack(fill="x", pady=(3, 1))
 
@@ -723,7 +782,9 @@ class MainWindow(ctk.CTk):
             StoryPriority.COLUMN.value: ["col_1", "col_2", "col_3", "column_1"],
             StoryPriority.SNIPPET.value: ["brief_1", "snippet", "notice_box"],
         }
-        cand_ids = prio_map.get(story.priority.value if isinstance(story.priority, StoryPriority) else str(story.priority), [])
+        cand_ids = prio_map.get(
+            story.priority.value if isinstance(story.priority, StoryPriority) else str(story.priority), []
+        )
         target_slot_id = None
         for s in slots:
             if s.get("id") in cand_ids:
@@ -745,7 +806,13 @@ class MainWindow(ctk.CTk):
         if card:
             for child in card.winfo_children():
                 for sub in child.winfo_children():
-                    if isinstance(sub, ctk.CTkLabel) and getattr(sub, "_text", "") not in ("COVER HERO", "MAJOR FEATURE", "SIDE COLUMN", "NOTICE / LORE", " Image"):
+                    if isinstance(sub, ctk.CTkLabel) and getattr(sub, "_text", "") not in (
+                        "COVER HERO",
+                        "MAJOR FEATURE",
+                        "SIDE COLUMN",
+                        "NOTICE / LORE",
+                        " Image",
+                    ):
                         sub.configure(text=story.headline or "[Untitled Headline]")
 
     def _on_slot_clicked_on_canvas(self, slot_id: str, story_id: Optional[str]):
@@ -773,7 +840,7 @@ class MainWindow(ctk.CTk):
                 edition=self.edition,
                 on_slot_clicked=self._on_slot_clicked_on_canvas,
                 on_page_changed=self._on_preview_page_flipped,
-                on_dock=self._toggle_preview_detachment
+                on_dock=self._toggle_preview_detachment,
             )
             self.floating_preview_win.preview_canvas.set_current_page(self.current_page_idx)
             self.status_lbl.configure(text="Preview detached to secondary monitor. Main window expanded.")
@@ -824,7 +891,10 @@ class MainWindow(ctk.CTk):
             return
         new_idx = idx + offset
         if 0 <= new_idx < len(active_page.stories):
-            active_page.stories[idx], active_page.stories[new_idx] = active_page.stories[new_idx], active_page.stories[idx]
+            active_page.stories[idx], active_page.stories[new_idx] = (
+                active_page.stories[new_idx],
+                active_page.stories[idx],
+            )
             self.edition.stories = self.edition.all_stories()
             self._refresh_stories_list()
             self._update_preview()
@@ -871,7 +941,7 @@ class MainWindow(ctk.CTk):
             edition=self.edition,
             on_project_save=self._on_layout_saved_to_project,
             on_global_change=self._refresh_layout_options,
-            base_dir=self.base_dir
+            base_dir=self.base_dir,
         )
 
     def _on_layout_saved_to_project(self):
@@ -886,7 +956,9 @@ class MainWindow(ctk.CTk):
         self.tagline_entry.insert(0, self.edition.tagline)
 
         self.topic_bar_entry.delete(0, "end")
-        self.topic_bar_entry.insert(0, getattr(self.edition, "topic_bar", "HOGWARTS ★ HOGSMEADE ★ MINISTRY ★ COMMUNITY"))
+        self.topic_bar_entry.insert(
+            0, getattr(self.edition, "topic_bar", "HOGWARTS ★ HOGSMEADE ★ MINISTRY ★ COMMUNITY")
+        )
 
         self.date_entry.delete(0, "end")
         self.date_entry.insert(0, self.edition.edition_date)
@@ -1027,7 +1099,9 @@ class MainWindow(ctk.CTk):
         success, msg = self.exporter.export_pdf(self.edition, path, scale=2.0)
         if success:
             self.status_lbl.configure(text=f"Exported PDF to: {os.path.basename(path)}")
-            messagebox.showinfo("PDF Export Complete", f"Created {num_pages}-page print-ready PDF:\n{path}", parent=self)
+            messagebox.showinfo(
+                "PDF Export Complete", f"Created {num_pages}-page print-ready PDF:\n{path}", parent=self
+            )
         else:
             messagebox.showerror("Export Failed", msg, parent=self)
 
@@ -1041,14 +1115,25 @@ class MainWindow(ctk.CTk):
         dialog.transient(self)
         dialog.grab_set()
 
-        ctk.CTkLabel(dialog, text="Export Broadsheet Images / GIF", font=ctk.CTkFont(size=14, weight="bold")).pack(pady=(16, 8))
+        ctk.CTkLabel(dialog, text="Export Broadsheet Images / GIF", font=ctk.CTkFont(size=14, weight="bold")).pack(
+            pady=(16, 8)
+        )
 
         scope_var = ctk.StringVar(value="current")
-        ctk.CTkRadioButton(dialog, text=f"Export Active Page ({self.current_page_idx + 1} of {num_pages})", variable=scope_var, value="current").pack(anchor="w", padx=30, pady=4)
-        ctk.CTkRadioButton(dialog, text=f"Export All Pages ({num_pages} Pages)", variable=scope_var, value="all").pack(anchor="w", padx=30, pady=4)
+        ctk.CTkRadioButton(
+            dialog,
+            text=f"Export Active Page ({self.current_page_idx + 1} of {num_pages})",
+            variable=scope_var,
+            value="current",
+        ).pack(anchor="w", padx=30, pady=4)
+        ctk.CTkRadioButton(dialog, text=f"Export All Pages ({num_pages} Pages)", variable=scope_var, value="all").pack(
+            anchor="w", padx=30, pady=4
+        )
 
         anim_var = ctk.BooleanVar(value=False)
-        ctk.CTkCheckBox(dialog, text="Export as Animated Broadsheet GIF (moving pictures)", variable=anim_var).pack(anchor="w", padx=30, pady=(12, 16))
+        ctk.CTkCheckBox(dialog, text="Export as Animated Broadsheet GIF (moving pictures)", variable=anim_var).pack(
+            anchor="w", padx=30, pady=(12, 16)
+        )
 
         def _do_export():
             is_anim = anim_var.get()
@@ -1058,12 +1143,18 @@ class MainWindow(ctk.CTk):
             if scope == "current":
                 ext = ".gif" if is_anim else ".png"
                 filetypes = [("GIF Animation", "*.gif")] if is_anim else [("PNG Image", "*.png"), ("JPEG", "*.jpg")]
-                out_path = filedialog.asksaveasfilename(parent=self, title="Export Page Image", defaultextension=ext, filetypes=filetypes)
+                out_path = filedialog.asksaveasfilename(
+                    parent=self, title="Export Page Image", defaultextension=ext, filetypes=filetypes
+                )
                 if out_path:
                     if is_anim:
-                        success, msg = self.exporter.export_animated_gif(self.edition, out_path, page_idx=self.current_page_idx)
+                        success, msg = self.exporter.export_animated_gif(
+                            self.edition, out_path, page_idx=self.current_page_idx
+                        )
                     else:
-                        success, msg = self.exporter.export_page_image(self.edition, out_path, page_idx=self.current_page_idx, scale=2.0)
+                        success, msg = self.exporter.export_page_image(
+                            self.edition, out_path, page_idx=self.current_page_idx, scale=2.0
+                        )
                     if success:
                         messagebox.showinfo("Export Complete", msg, parent=self)
                     else:
@@ -1072,19 +1163,30 @@ class MainWindow(ctk.CTk):
                 out_dir = filedialog.askdirectory(parent=self, title="Select Directory for Exported Pages")
                 if out_dir:
                     fmt = "gif" if is_anim else "png"
-                    success, msg, paths = self.exporter.export_all_page_images(self.edition, out_dir, format_ext=fmt, scale=2.0)
+                    success, msg, paths = self.exporter.export_all_page_images(
+                        self.edition, out_dir, format_ext=fmt, scale=2.0
+                    )
                     if success:
-                        messagebox.showinfo("Batch Export Complete", f"Exported {len(paths)} pages into:\n{out_dir}", parent=self)
+                        messagebox.showinfo(
+                            "Batch Export Complete", f"Exported {len(paths)} pages into:\n{out_dir}", parent=self
+                        )
                     else:
                         messagebox.showerror("Export Failed", msg, parent=self)
 
-        ctk.CTkButton(dialog, text="Export Publication", fg_color=Theme.BTN_PRIMARY[0], hover_color=Theme.BTN_PRIMARY[1], command=_do_export).pack(pady=10)
+        ctk.CTkButton(
+            dialog,
+            text="Export Publication",
+            fg_color=Theme.BTN_PRIMARY[0],
+            hover_color=Theme.BTN_PRIMARY[1],
+            command=_do_export,
+        ).pack(pady=10)
 
     def _apply_win32_icon(self):
         if sys.platform != "win32" or not hasattr(self, "icon_ico") or not os.path.exists(self.icon_ico):
             return
         try:
             import ctypes
+
             user32 = ctypes.windll.user32
             hwnd = self.winfo_id()
             root_hwnd = user32.GetAncestor(hwnd, 2)

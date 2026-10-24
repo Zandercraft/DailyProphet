@@ -1,4 +1,5 @@
 """Newspaper preview integration."""
+
 import os
 
 
