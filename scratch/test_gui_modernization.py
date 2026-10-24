@@ -71,5 +71,21 @@ assert slot.get("align") == "justify"
 le.destroy()
 print("Slot alignment / justification inspector ok.")
 
+# 8. Test live settings field updates
+app.title_entry.delete(0, "end")
+app.title_entry.insert(0, "THE EVENING PROPHET")
+app._on_settings_field_changed()
+assert app.edition.paper_title == "THE EVENING PROPHET"
+print("Live settings field updates and preview sync ok.")
+
+# 9. Test native renderer with symbols / stars
+from daily_prophet.native_renderer import NativeBroadsheetRenderer  # noqa: E402
+
+renderer = NativeBroadsheetRenderer()
+app.edition.breaking_banner = "BREAKING ★ STAR ALERT ★ TEST"
+img = renderer.render_page(app.edition, 0)
+assert img is not None
+print("Native broadsheet symbol/star rendering ok.")
+
 app.destroy()
 print("All functional GUI smoke tests PASSED!")

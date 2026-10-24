@@ -6,9 +6,39 @@ masthead typography of the Daily Prophet newspaper.
 """
 
 from __future__ import annotations
-from typing import Optional, Tuple, Dict
+import os
+import sys
+from typing import Optional, Tuple, Dict, List
 import customtkinter as ctk
 from PIL import Image
+
+_FONTS_REGISTERED = False
+
+
+def register_custom_fonts(font_dir: Optional[str] = None) -> None:
+    """Registers bundled vintage TTF fonts into Windows GDI memory for Tkinter."""
+    global _FONTS_REGISTERED
+    if _FONTS_REGISTERED:
+        return
+    _FONTS_REGISTERED = True
+
+    if sys.platform != "win32":
+        return
+
+    try:
+        import ctypes
+
+        if not font_dir:
+            project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+            font_dir = os.path.join(project_root, "assets", "fonts")
+
+        if os.path.isdir(font_dir):
+            for fname in os.listdir(font_dir):
+                if fname.lower().endswith(".ttf"):
+                    fpath = os.path.abspath(os.path.join(font_dir, fname))
+                    ctypes.windll.gdi32.AddFontResourceExW(fpath, 0x10, 0)
+    except Exception:
+        pass
 
 
 # ---------------------------------------------------------------------------
@@ -60,13 +90,40 @@ class Theme:
     # -----------------------------------------------------------------------
     # Typography Helpers
     # -----------------------------------------------------------------------
-    @staticmethod
-    def font_masthead() -> ctk.CTkFont:
-        return ctk.CTkFont(family="Georgia", size=18, weight="bold")
+    @classmethod
+    def get_preferred_font(
+        cls,
+        candidates: List[str],
+        fallback: str = "Georgia",
+    ) -> str:
+        register_custom_fonts()
+        try:
+            from tkinter import font as tkfont
+            import tkinter as tk
 
-    @staticmethod
-    def font_title() -> ctk.CTkFont:
-        return ctk.CTkFont(family="Georgia", size=15, weight="bold")
+            if tk._default_root:
+                available = {f.lower() for f in tkfont.families()}
+                for c in candidates:
+                    if c.lower() in available:
+                        return c
+        except Exception:
+            pass
+        return fallback
+
+    @classmethod
+    def font_masthead(cls, size: int = 20, weight: str = "bold") -> ctk.CTkFont:
+        family = cls.get_preferred_font(["Cinzel", "Playfair Display"], fallback="Georgia")
+        return ctk.CTkFont(family=family, size=size, weight=weight)
+
+    @classmethod
+    def font_masthead_subtitle(cls, size: int = 13, slant: str = "italic") -> ctk.CTkFont:
+        family = cls.get_preferred_font(["IM FELL English", "Playfair Display"], fallback="Georgia")
+        return ctk.CTkFont(family=family, size=size, slant=slant)
+
+    @classmethod
+    def font_title(cls, size: int = 15, weight: str = "bold") -> ctk.CTkFont:
+        family = cls.get_preferred_font(["Cinzel", "Playfair Display"], fallback="Georgia")
+        return ctk.CTkFont(family=family, size=size, weight=weight)
 
     @staticmethod
     def font_section() -> ctk.CTkFont:
@@ -92,7 +149,9 @@ class Theme:
     # Component Helpers
     # -----------------------------------------------------------------------
     @classmethod
-    def create_header_banner(cls, parent, title: str, subtitle: Optional[str] = None, height: int = 55) -> ctk.CTkFrame:
+    def create_header_banner(
+        cls, parent: ctk.CTkBaseClass, title: str, subtitle: Optional[str] = None, height: int = 60
+    ) -> ctk.CTkFrame:
         """Creates a standardized, clean Daily Prophet header banner."""
         header = ctk.CTkFrame(parent, fg_color=cls.HEADER_BG, corner_radius=0, height=height)
         header.pack(fill="x", padx=0, pady=(0, 8))
@@ -100,11 +159,13 @@ class Theme:
         inner = ctk.CTkFrame(header, fg_color="transparent")
         inner.pack(fill="both", expand=True, padx=16, pady=8)
 
-        title_lbl = ctk.CTkLabel(inner, text=title, font=cls.font_masthead(), text_color=cls.TEXT_PARCHMENT)
+        title_lbl = ctk.CTkLabel(inner, text=title, font=cls.font_masthead(size=18), text_color=cls.TEXT_PARCHMENT)
         title_lbl.pack(side="left", padx=(0, 10))
 
         if subtitle:
-            sub_lbl = ctk.CTkLabel(inner, text=subtitle, font=cls.font_body_italic(), text_color=cls.TEXT_MUTED)
+            sub_lbl = ctk.CTkLabel(
+                inner, text=subtitle, font=cls.font_masthead_subtitle(size=12), text_color=cls.TEXT_MUTED
+            )
             sub_lbl.pack(side="left", padx=4)
 
         return header

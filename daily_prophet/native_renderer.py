@@ -4,6 +4,7 @@ Renders authentic, high-resolution Harry Potter broadsheet newspapers directly o
 Supports borderless PDF and high-res PNG/JPEG exports.
 """
 
+import math
 import os
 from typing import List, Tuple, Optional, Dict
 from PIL import Image, ImageDraw, ImageFont
@@ -73,14 +74,75 @@ def _get_word_width(font: ImageFont.FreeTypeFont, word: str) -> float:
     key = (id(font), word)
     w = _GLYPH_WIDTH_CACHE.get(key)
     if w is None:
-        try:
-            w = font.getlength(word)
-        except Exception:
-            w = float(len(word) * 8)
+        if "★" in word or "\u2605" in word:
+            parts = word.replace("\u2605", "★").split("★")
+            try:
+                tb = font.getbbox("Hg")
+                line_h = float(tb[3] - tb[1])
+            except Exception:
+                line_h = 14.0
+            star_w = max(4.0, line_h * 0.9)
+            text_w = sum(font.getlength(p) if hasattr(font, "getlength") else len(p) * 8.0 for p in parts if p)
+            w = float(text_w + (len(parts) - 1) * star_w)
+        else:
+            try:
+                w = float(font.getlength(word))
+            except Exception:
+                w = float(len(word) * 8)
         if len(_GLYPH_WIDTH_CACHE) > 10000:
             _GLYPH_WIDTH_CACHE.clear()
         _GLYPH_WIDTH_CACHE[key] = w
     return w
+
+
+def _draw_star(draw: ImageDraw.ImageDraw, cx: float, cy: float, r: float, fill: Tuple[int, int, int]) -> None:
+    """Draws a crisp geometric 5-pointed star."""
+    points = []
+    inner_r = r * 0.40
+    for i in range(10):
+        angle = i * (math.pi / 5.0) - (math.pi / 2.0)
+        radius = r if i % 2 == 0 else inner_r
+        px = cx + radius * math.cos(angle)
+        py = cy + radius * math.sin(angle)
+        points.append((px, py))
+    draw.polygon(points, fill=fill)
+
+
+def _draw_text_with_symbols(
+    draw: ImageDraw.ImageDraw,
+    pos: Tuple[int, int],
+    text: str,
+    font: ImageFont.FreeTypeFont,
+    fill: Tuple[int, int, int],
+) -> None:
+    """Draws text with geometric vector rendering for symbols not present in vintage fonts (e.g. ★)."""
+    if "★" not in text and "\u2605" not in text:
+        draw.text(pos, text, font=font, fill=fill)
+        return
+
+    cur_x = float(pos[0])
+    cur_y = float(pos[1])
+    try:
+        tb = font.getbbox("Hg")
+        line_h = float(tb[3] - tb[1])
+    except Exception:
+        line_h = 14.0
+    star_r = max(2.5, line_h * 0.38)
+    star_w = max(4.0, line_h * 0.9)
+
+    parts = text.replace("\u2605", "★").split("★")
+    for idx, part in enumerate(parts):
+        if part:
+            draw.text((int(round(cur_x)), int(round(cur_y))), part, font=font, fill=fill)
+            try:
+                cur_x += float(font.getlength(part))
+            except Exception:
+                cur_x += float(len(part) * 8)
+        if idx < len(parts) - 1:
+            cx = cur_x + star_w / 2.0
+            cy = cur_y + line_h / 2.0
+            _draw_star(draw, cx, cy, star_r, fill)
+            cur_x += star_w
 
 
 def _wrap_text_to_width(
@@ -126,19 +188,19 @@ def _draw_justified_line(
 ):
     """Draws a single line of text with inter-word justification without redundant measurements."""
     if len(words) <= 1:
-        draw.text((x, y), " ".join(words), font=font, fill=fill)
+        _draw_text_with_symbols(draw, (x, y), " ".join(words), font=font, fill=fill)
         return
 
     total_words_w = sum(word_widths)
     space_to_distribute = max_width - total_words_w
     if space_to_distribute <= 0:
-        draw.text((x, y), " ".join(words), font=font, fill=fill)
+        _draw_text_with_symbols(draw, (x, y), " ".join(words), font=font, fill=fill)
         return
 
     space_per_gap = space_to_distribute / (len(words) - 1)
     cur_x = float(x)
     for word, w_w in zip(words, word_widths):
-        draw.text((round(cur_x), y), word, font=font, fill=fill)
+        _draw_text_with_symbols(draw, (round(cur_x), y), word, font=font, fill=fill)
         cur_x += w_w + space_per_gap
 
 
@@ -177,11 +239,13 @@ def _draw_story_paragraphs(
 
         indent = 0.0
         if first_para and has_drop_cap and len(words[0]) > 0:
-            drop_char = words[0][0]
-            words[0] = words[0][1:]
-            drop_w = _get_word_width(drop_font, drop_char) + 6.0
-            draw.text((x, cur_y - 2), drop_char, font=drop_font, fill=fill)
-            indent = drop_w
+            first_char = words[0][0]
+            if first_char.isalpha():
+                drop_char = first_char
+                words[0] = words[0][1:]
+                drop_w = _get_word_width(drop_font, drop_char) + 6.0
+                draw.text((x, cur_y - 2), drop_char, font=drop_font, fill=fill)
+                indent = drop_w
         elif not first_para:
             indent = 14.0
 
@@ -217,13 +281,13 @@ def _draw_story_paragraphs(
                 if align == "center":
                     lw = sum(current_widths) + (len(current_words) - 1) * space_w
                     cx = int(avail_x + max(0.0, (avail_w - lw) / 2))
-                    draw.text((cx, cur_y), " ".join(current_words), font=font, fill=fill)
+                    _draw_text_with_symbols(draw, (cx, cur_y), " ".join(current_words), font=font, fill=fill)
                 elif align == "right":
                     lw = sum(current_widths) + (len(current_words) - 1) * space_w
                     rx_pos = int(avail_x + max(0.0, avail_w - lw))
-                    draw.text((rx_pos, cur_y), " ".join(current_words), font=font, fill=fill)
+                    _draw_text_with_symbols(draw, (rx_pos, cur_y), " ".join(current_words), font=font, fill=fill)
                 elif align == "left":
-                    draw.text((int(avail_x), cur_y), " ".join(current_words), font=font, fill=fill)
+                    _draw_text_with_symbols(draw, (int(avail_x), cur_y), " ".join(current_words), font=font, fill=fill)
                 else:  # "justify"
                     _draw_justified_line(
                         draw, current_words, current_widths, font, int(avail_x), cur_y, int(avail_w), fill
@@ -254,13 +318,13 @@ def _draw_story_paragraphs(
             if align == "center":
                 lw = sum(current_widths) + (len(current_words) - 1) * space_w
                 cx = int(avail_x + max(0.0, (avail_w - lw) / 2))
-                draw.text((cx, cur_y), " ".join(current_words), font=font, fill=fill)
+                _draw_text_with_symbols(draw, (cx, cur_y), " ".join(current_words), font=font, fill=fill)
             elif align == "right":
                 lw = sum(current_widths) + (len(current_words) - 1) * space_w
                 rx_pos = int(avail_x + max(0.0, avail_w - lw))
-                draw.text((rx_pos, cur_y), " ".join(current_words), font=font, fill=fill)
+                _draw_text_with_symbols(draw, (rx_pos, cur_y), " ".join(current_words), font=font, fill=fill)
             else:
-                draw.text((int(avail_x), cur_y), " ".join(current_words), font=font, fill=fill)
+                _draw_text_with_symbols(draw, (int(avail_x), cur_y), " ".join(current_words), font=font, fill=fill)
             cur_y += line_h + 4
 
         first_para = False
@@ -562,7 +626,7 @@ class NativeBroadsheetRenderer:
                 t_font_sz = _resolve_slot_font_size(slot.get("font_size"), min(S(48), max(S(18), int(rh * 0.7))), scale)
                 t_font = self.fonts.get_font(t_font_type, t_font_sz)
                 t_color = _parse_slot_color(slot.get("text_color"), ink_black)
-                txt = "DAILY PROPHET"
+                txt = (edition.paper_title.strip() or "DAILY PROPHET").upper()
                 t_bbox = draw.textbbox((0, 0), txt, font=t_font)
                 tw = t_bbox[2] - t_bbox[0]
                 th = t_bbox[3] - t_bbox[1]
@@ -574,7 +638,7 @@ class NativeBroadsheetRenderer:
                 else:
                     tx = rx + max(0, (rw - tw) // 2)
                 ty = ry + max(0, (rh - th) // 2)
-                draw.text((tx, ty), txt, font=t_font, fill=t_color)
+                _draw_text_with_symbols(draw, (tx, ty), txt, font=t_font, fill=t_color)
 
             elif stype == "ear_box":
                 draw.rectangle([rx, ry, rx + rw, ry + rh], outline=border_ink, width=S(1))
@@ -624,7 +688,7 @@ class NativeBroadsheetRenderer:
                 s_font_sz = _resolve_slot_font_size(slot.get("font_size"), min(S(10), max(S(7), int(rh * 0.45))), scale)
                 s_font = self.fonts.get_font(s_font_type, s_font_sz)
                 s_color = _parse_slot_color(slot.get("text_color"), ink_dark)
-                s_text = f"✦ {edition.tagline} ✦"
+                s_text = f"✦ {edition.tagline} ✦" if edition.tagline else ""
                 sb = draw.textbbox((0, 0), s_text, font=s_font)
                 sw = sb[2] - sb[0]
                 s_align = _resolve_slot_align(slot.get("align", slot.get("justification")), "center")
@@ -634,7 +698,7 @@ class NativeBroadsheetRenderer:
                     sx = rx + max(0, rw - sw)
                 else:
                     sx = rx + (rw - sw) // 2
-                draw.text((sx, ry + S(3)), s_text, font=s_font, fill=s_color)
+                _draw_text_with_symbols(draw, (sx, ry + S(3)), s_text, font=s_font, fill=s_color)
 
             elif stype in ["ticker", "banner"]:
                 draw.line([rx, ry, rx + rw, ry], fill=border_ink, width=S(1))
@@ -643,7 +707,10 @@ class NativeBroadsheetRenderer:
                 tk_font_sz = _resolve_slot_font_size(slot.get("font_size"), min(S(9), max(S(7), int(rh * 0.4))), scale)
                 tk_font = self.fonts.get_font(tk_font_type, tk_font_sz)
                 tk_color = _parse_slot_color(slot.get("text_color"), ink_black)
-                tk_text = edition.topic_bar if stype == "ticker" else f"❖ {edition.tagline.upper()} ❖"
+                if stype == "ticker":
+                    tk_text = edition.topic_bar
+                else:
+                    tk_text = edition.breaking_banner or f"❖ {edition.tagline.upper()} ❖"
                 tk_bbox = draw.textbbox((0, 0), tk_text, font=tk_font)
                 tkw = tk_bbox[2] - tk_bbox[0]
                 tk_align = _resolve_slot_align(slot.get("align", slot.get("justification")), "center")
@@ -653,7 +720,7 @@ class NativeBroadsheetRenderer:
                     tkx = rx + max(0, rw - tkw - S(4))
                 else:
                     tkx = rx + max(0, (rw - tkw) // 2)
-                draw.text((tkx, ry + S(4)), tk_text, font=tk_font, fill=tk_color)
+                _draw_text_with_symbols(draw, (tkx, ry + S(4)), tk_text, font=tk_font, fill=tk_color)
 
             elif stype in ["headline", "subheadline"]:
                 text_str = (
@@ -683,7 +750,7 @@ class NativeBroadsheetRenderer:
                         lx = rx + max(0, rw - lw)
                     else:
                         lx = rx
-                    draw.text((lx, cy), line, font=h_font, fill=h_color)
+                    _draw_text_with_symbols(draw, (lx, cy), line, font=h_font, fill=h_color)
                     cy += font_size + S(4)
 
             elif stype == "photo":
@@ -756,18 +823,16 @@ class NativeBroadsheetRenderer:
                         qx = rx + max(S(8), rw - qw - S(8))
                     else:
                         qx = rx + S(8)
-                    draw.text((qx, qy), ql, font=q_font, fill=q_color)
+                    _draw_text_with_symbols(draw, (qx, qy), ql, font=q_font, fill=q_color)
                     qy += q_size + S(4)
-                qy = ry + S(8)
-                for ql in qlines:
-                    draw.text((rx + S(8), qy), ql, font=q_font, fill=accent_red)
-                    qy += S(14)
-                draw.text(
-                    (rx + S(8), qy + S(4)),
-                    f"— {edition.quote_author.upper()}",
-                    font=self.fonts.get_font("headline", S(8.5)),
-                    fill=ink_dark,
-                )
+                if edition.quote_author:
+                    _draw_text_with_symbols(
+                        draw,
+                        (rx + S(8), qy + S(4)),
+                        f"— {edition.quote_author.upper()}",
+                        font=self.fonts.get_font("headline", S(8.5)),
+                        fill=ink_dark,
+                    )
 
             elif stype == "lore":
                 ltitle, lbody = lore_items[lore_cursor % len(lore_items)]

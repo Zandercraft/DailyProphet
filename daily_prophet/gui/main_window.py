@@ -8,7 +8,7 @@ import customtkinter as ctk
 from PIL import Image
 
 from typing import Optional, Dict
-from ..models import NewspaperEdition, Story, StoryPriority, PaperTheme
+from ..models import NewspaperEdition, Story, StoryPriority
 from ..sample_data import get_original_hogwarts_edition
 from ..pdf_exporter import PublicationExporter
 from .layout_editor_window import LayoutEditorWindow
@@ -87,25 +87,25 @@ class MainWindow(ctk.CTk):
         self.tabview._segmented_button.configure(border_width=0)
         self.tabview.pack(fill="both", expand=True, padx=14, pady=(6, 4))
 
-        self.tab_stories = self.tabview.add("Stories & Live Workspace")
-        self.tab_settings = self.tabview.add("Newspaper Header & Settings")
+        self.tab_stories = self.tabview.add("Story Workspace")
+        self.tab_settings = self.tabview.add("Header & Project Settings")
 
         self._setup_workspace_tab()
         self._setup_settings_tab()
         self._setup_bottom_bar()
 
     def _setup_top_ribbon(self):
-        top_bar = ctk.CTkFrame(self, fg_color=Theme.HEADER_BG, corner_radius=0, height=52)
+        top_bar = ctk.CTkFrame(self, fg_color=Theme.HEADER_BG, corner_radius=0, height=66)
         top_bar.pack(fill="x", padx=0, pady=0)
 
         title_box = ctk.CTkFrame(top_bar, fg_color="transparent")
-        title_box.pack(side="left", padx=12, pady=6)
+        title_box.pack(side="left", padx=16, pady=4)
 
         if os.path.exists(self.icon_png):
             try:
                 logo_pil = Image.open(self.icon_png)
-                self.brand_logo_img = ctk.CTkImage(light_image=logo_pil, dark_image=logo_pil, size=(34, 34))
-                ctk.CTkLabel(title_box, image=self.brand_logo_img, text="").pack(side="left", padx=(0, 8))
+                self.brand_logo_img = ctk.CTkImage(light_image=logo_pil, dark_image=logo_pil, size=(58, 58))
+                ctk.CTkLabel(title_box, image=self.brand_logo_img, text="").pack(side="left", padx=(0, 12))
             except Exception:
                 pass
 
@@ -115,20 +115,20 @@ class MainWindow(ctk.CTk):
         ctk.CTkLabel(
             titles_text_box,
             text="THE DAILY PROPHET",
-            font=ctk.CTkFont(family="Georgia", size=17, weight="bold"),
+            font=Theme.font_masthead(size=20, weight="bold"),
             text_color=Theme.TEXT_PARCHMENT,
         ).pack(anchor="w")
 
         ctk.CTkLabel(
             titles_text_box,
-            text="Wizarding Broadsheet Generator & Layout Publisher",
-            font=ctk.CTkFont(family="Georgia", size=10, slant="italic"),
-            text_color=Theme.TEXT_MUTED,
-        ).pack(anchor="w")
+            text="Wizarding Broadsheet Editor & Layout Publisher",
+            font=Theme.font_masthead_subtitle(size=12, slant="italic"),
+            text_color="#d6c9b6",
+        ).pack(anchor="w", pady=(2, 0))
 
         # Responsive Icon-First Toolbar on Right
         top_btns = ctk.CTkFrame(top_bar, fg_color="transparent")
-        top_btns.pack(side="right", padx=12, pady=6)
+        top_btns.pack(side="right", padx=14, pady=12)
 
         new_btn = ctk.CTkButton(
             top_btns,
@@ -509,31 +509,27 @@ class MainWindow(ctk.CTk):
         self.footer_entry = ctk.CTkEntry(banner_frame)
         self.footer_entry.pack(fill="x", padx=12, pady=(0, 10))
 
-        # THEME
-        theme_frame = ctk.CTkFrame(scroll)
-        theme_frame.pack(fill="x", pady=6)
-        ctk.CTkLabel(theme_frame, text="Broadsheet Styling", font=ctk.CTkFont(size=14, weight="bold")).pack(
-            anchor="w", padx=12, pady=(10, 4)
-        )
+        # Bind live preview updates on settings field changes
+        for entry in [
+            self.title_entry,
+            self.tagline_entry,
+            self.topic_bar_entry,
+            self.date_entry,
+            self.day_entry,
+            self.issue_entry,
+            self.label_entry,
+            self.price_entry,
+            self.weather_entry,
+            self.quote_text_entry,
+            self.quote_author_entry,
+            self.breaking_entry,
+            self.footer_entry,
+        ]:
+            entry.bind("<KeyRelease>", self._on_settings_field_changed)
 
-        t_row = ctk.CTkFrame(theme_frame, fg_color="transparent")
-        t_row.pack(fill="x", padx=12, pady=(0, 10))
-
-        ctk.CTkLabel(t_row, text="Broadsheet Theme:").pack(side="left", padx=(0, 12))
-        self.theme_var = ctk.StringVar(value=PaperTheme.ORIGINAL_PROPHET.value)
-        ctk.CTkOptionMenu(
-            t_row,
-            variable=self.theme_var,
-            values=PaperTheme.choices(),
-            width=220,
-        ).pack(side="left")
-
-        self.motion_var = ctk.BooleanVar(value=True)
-        ctk.CTkCheckBox(
-            theme_frame,
-            text="Enable Magical Photo Motion (Support moving portraits in GIF publications)",
-            variable=self.motion_var,
-        ).pack(anchor="w", padx=12, pady=(4, 12))
+    def _on_settings_field_changed(self, event=None):
+        self._sync_settings_from_ui()
+        self._update_preview()
 
     # -----------------------------------------------------------------------
     # Multi-Page Navigation and Ribbon Management
@@ -1022,9 +1018,6 @@ class MainWindow(ctk.CTk):
         self.footer_entry.delete(0, "end")
         self.footer_entry.insert(0, getattr(self.edition, "footer_slogan", ""))
 
-        self.theme_var.set(self.edition.theme)
-        self.motion_var.set(self.edition.magical_motion)
-
         self._refresh_page_tabs()
         self._refresh_stories_list()
         self.preview_canvas.set_edition(self.edition)
@@ -1045,8 +1038,6 @@ class MainWindow(ctk.CTk):
         self.edition.quote_author = self.quote_author_entry.get().strip()
         self.edition.breaking_banner = self.breaking_entry.get().strip()
         self.edition.footer_slogan = self.footer_entry.get().strip()
-        self.edition.theme = self.theme_var.get()
-        self.edition.magical_motion = self.motion_var.get()
 
     def _load_hogwarts_original(self):
         self.edition = get_original_hogwarts_edition(self.base_dir)
