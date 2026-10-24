@@ -5,7 +5,7 @@ Supports borderless PDF and high-res PNG/JPEG exports.
 """
 
 import os
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Dict
 from PIL import Image, ImageDraw, ImageFont
 
 from .models import NewspaperEdition, NewspaperPage, Story, StoryPriority
@@ -66,25 +66,48 @@ class BroadsheetFontManager:
         return font
 
 
+_GLYPH_WIDTH_CACHE: Dict[Tuple[int, str], float] = {}
+
+
+def _get_word_width(font: ImageFont.FreeTypeFont, word: str) -> float:
+    key = (id(font), word)
+    w = _GLYPH_WIDTH_CACHE.get(key)
+    if w is None:
+        try:
+            w = font.getlength(word)
+        except Exception:
+            w = float(len(word) * 8)
+        if len(_GLYPH_WIDTH_CACHE) > 10000:
+            _GLYPH_WIDTH_CACHE.clear()
+        _GLYPH_WIDTH_CACHE[key] = w
+    return w
+
+
 def _wrap_text_to_width(
     draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont, max_width: int
 ) -> List[str]:
-    """Wraps text so each line fits within max_width pixels."""
+    """Wraps text so each line fits within max_width pixels with O(N) word caching."""
     if not text:
         return []
     words = text.split()
-    lines = []
-    current_line = []
+    if not words:
+        return []
+
+    lines: List[str] = []
+    current_line: List[str] = []
+    current_w = 0.0
+    space_w = _get_word_width(font, " ")
 
     for word in words:
-        test_line = " ".join(current_line + [word])
-        bbox = draw.textbbox((0, 0), test_line, font=font)
-        line_w = bbox[2] - bbox[0]
-        if line_w <= max_width or not current_line:
+        w_w = _get_word_width(font, word)
+        added_w = w_w if not current_line else (space_w + w_w)
+        if (current_w + added_w <= max_width) or not current_line:
             current_line.append(word)
+            current_w += added_w
         else:
             lines.append(" ".join(current_line))
             current_line = [word]
+            current_w = w_w
 
     if current_line:
         lines.append(" ".join(current_line))
@@ -93,31 +116,29 @@ def _wrap_text_to_width(
 
 def _draw_justified_line(
     draw: ImageDraw.ImageDraw,
-    line: str,
+    words: List[str],
+    word_widths: List[float],
     font: ImageFont.FreeTypeFont,
     x: int,
     y: int,
     max_width: int,
     fill: Tuple[int, int, int],
 ):
-    """Draws a single line of text with inter-word justification."""
-    words = line.split()
+    """Draws a single line of text with inter-word justification without redundant measurements."""
     if len(words) <= 1:
-        draw.text((x, y), line, font=font, fill=fill)
+        draw.text((x, y), " ".join(words), font=font, fill=fill)
         return
 
-    # Total width of all words without spaces
-    total_words_w = sum(draw.textbbox((0, 0), w, font=font)[2] - draw.textbbox((0, 0), w, font=font)[0] for w in words)
+    total_words_w = sum(word_widths)
     space_to_distribute = max_width - total_words_w
     if space_to_distribute <= 0:
-        draw.text((x, y), line, font=font, fill=fill)
+        draw.text((x, y), " ".join(words), font=font, fill=fill)
         return
 
     space_per_gap = space_to_distribute / (len(words) - 1)
     cur_x = float(x)
-    for word in words:
+    for word, w_w in zip(words, word_widths):
         draw.text((round(cur_x), y), word, font=font, fill=fill)
-        w_w = draw.textbbox((0, 0), word, font=font)[2] - draw.textbbox((0, 0), word, font=font)[0]
         cur_x += w_w + space_per_gap
 
 
@@ -136,11 +157,12 @@ def _draw_story_paragraphs(
     has_drop_cap: bool = False,
     avoid_rect: Optional[Tuple[int, int, int, int]] = None,  # (ax, ay, aw, ah)
 ) -> int:
-    """Draws justified paragraphs, wrapping around an avoid_rect (inline photo or cutout)."""
+    """Draws justified paragraphs, wrapping around an avoid_rect with high-performance word caching."""
     cur_y = y
     first_para = True
+    space_w = _get_word_width(font, " ")
 
-    for p_idx, para in enumerate(paragraphs):
+    for para in paragraphs:
         clean = para.strip()
         if not clean:
             continue
@@ -149,62 +171,60 @@ def _draw_story_paragraphs(
         if not words:
             continue
 
-        indent = 0 if (first_para and has_drop_cap) else (14 if not first_para else 0)
-
-        # Handle drop-cap on first paragraph
+        indent = 0.0
         if first_para and has_drop_cap and len(words[0]) > 0:
             drop_char = words[0][0]
             words[0] = words[0][1:]
-            drop_bbox = draw.textbbox((0, 0), drop_char, font=drop_font)
-            drop_w = drop_bbox[2] - drop_bbox[0] + 6
+            drop_w = _get_word_width(drop_font, drop_char) + 6.0
             draw.text((x, cur_y - 2), drop_char, font=drop_font, fill=fill)
             indent = drop_w
+        elif not first_para:
+            indent = 14.0
 
-        current_line_words = []
+        current_words: List[str] = []
+        current_widths: List[float] = []
+        current_line_w = 0.0
         is_first_line_of_para = True
 
         for word in words:
-            test_words = current_line_words + [word]
-            test_line = " ".join(test_words)
+            w_w = _get_word_width(font, word)
 
-            # Determine position and available width based on avoid_rect
-            base_x = x + (indent if is_first_line_of_para else 0)
+            base_x = x + (indent if is_first_line_of_para else 0.0)
             avail_x = base_x
-            avail_w = max_w - (indent if is_first_line_of_para else 0)
+            avail_w = max_w - (indent if is_first_line_of_para else 0.0)
 
             if avoid_rect:
                 ax, ay, aw, ah = avoid_rect
                 if ay <= cur_y < ay + ah:
                     if ax <= x + 20:
-                        # Image is on the left
                         avail_x = ax + aw + 10
                         avail_w = (x + max_w) - avail_x
                     else:
-                        # Image is on the right
-                        avail_w = max(40, ax - avail_x - 10)
+                        avail_w = max(40.0, ax - avail_x - 10)
 
-            line_bbox = draw.textbbox((0, 0), test_line, font=font)
-            line_w = line_bbox[2] - line_bbox[0]
-
-            if line_w <= avail_w or not current_line_words:
-                current_line_words.append(word)
+            added_w = w_w if not current_words else (space_w + w_w)
+            if (current_line_w + added_w <= avail_w) or not current_words:
+                current_words.append(word)
+                current_widths.append(w_w)
+                current_line_w += added_w
             else:
                 if cur_y + line_h > y + max_h:
                     return cur_y
-                line_str = " ".join(current_line_words)
-                _draw_justified_line(draw, line_str, font, avail_x, cur_y, avail_w, fill)
+                _draw_justified_line(draw, current_words, current_widths, font, int(avail_x), cur_y, int(avail_w), fill)
                 cur_y += line_h
-                current_line_words = [word]
+                current_words = [word]
+                current_widths = [w_w]
+                current_line_w = w_w
                 is_first_line_of_para = False
                 if first_para and has_drop_cap:
-                    indent = 0
+                    indent = 0.0
 
-        if current_line_words:
+        if current_words:
             if cur_y + line_h > y + max_h:
                 return cur_y
-            base_x = x + (indent if is_first_line_of_para else 0)
+            base_x = x + (indent if is_first_line_of_para else 0.0)
             avail_x = base_x
-            avail_w = max_w - (indent if is_first_line_of_para else 0)
+            avail_w = max_w - (indent if is_first_line_of_para else 0.0)
             if avoid_rect:
                 ax, ay, aw, ah = avoid_rect
                 if ay <= cur_y < ay + ah:
@@ -212,9 +232,9 @@ def _draw_story_paragraphs(
                         avail_x = ax + aw + 10
                         avail_w = (x + max_w) - avail_x
                     else:
-                        avail_w = max(40, ax - avail_x - 10)
+                        avail_w = max(40.0, ax - avail_x - 10)
 
-            draw.text((avail_x, cur_y), " ".join(current_line_words), font=font, fill=fill)
+            draw.text((int(avail_x), cur_y), " ".join(current_words), font=font, fill=fill)
             cur_y += line_h + 4
 
         first_para = False
@@ -228,6 +248,13 @@ class NativeBroadsheetRenderer:
     def __init__(self, base_dir: str = "."):
         self.base_dir = os.path.abspath(base_dir)
         self.fonts = BroadsheetFontManager(self.base_dir)
+        self._bg_cache: Dict[Tuple[str, int, int], Image.Image] = {}
+        self._photo_cache: Dict[Tuple[str, int, int, float], Image.Image] = {}
+
+    def clear_caches(self) -> None:
+        """Clears pre-rendered background canvases and resized photo caches."""
+        self._bg_cache.clear()
+        self._photo_cache.clear()
 
     def render(
         self,
@@ -307,11 +334,16 @@ class NativeBroadsheetRenderer:
         target_w = int(base_w * scale)
         target_h = int(base_h * scale)
 
-        if os.path.exists(page_abs):
-            with Image.open(page_abs) as p_img:
-                canvas = p_img.resize((target_w, target_h), Image.Resampling.LANCZOS).convert("RGBA")
-        else:
-            canvas = Image.new("RGBA", (target_w, target_h), (226, 212, 178, 255))
+        bg_key = (page_abs, target_w, target_h)
+        if bg_key not in self._bg_cache:
+            if os.path.exists(page_abs):
+                with Image.open(page_abs) as p_img:
+                    self._bg_cache[bg_key] = p_img.resize((target_w, target_h), Image.Resampling.LANCZOS).convert(
+                        "RGBA"
+                    )
+            else:
+                self._bg_cache[bg_key] = Image.new("RGBA", (target_w, target_h), (226, 212, 178, 255))
+        canvas = self._bg_cache[bg_key].copy()
 
         draw = ImageDraw.Draw(canvas)
 
@@ -461,12 +493,18 @@ class NativeBroadsheetRenderer:
                 )
                 if img_path:
                     try:
-                        with Image.open(img_path) as p_img:
-                            p_resized = p_img.resize((rw, rh), Image.Resampling.LANCZOS).convert("RGBA")
-                            canvas.paste(p_resized, (rx, ry), p_resized)
-                            draw.rectangle([rx, ry, rx + rw, ry + rh], outline=border_ink, width=S(2))
+                        mtime = os.path.getmtime(img_path)
+                        pkey = (img_path, rw, rh, mtime)
+                        if pkey not in self._photo_cache:
+                            with Image.open(img_path) as p_img:
+                                self._photo_cache[pkey] = p_img.resize((rw, rh), Image.Resampling.LANCZOS).convert(
+                                    "RGBA"
+                                )
+                        p_resized = self._photo_cache[pkey]
+                        canvas.paste(p_resized, (rx, ry), p_resized)
+                        draw.rectangle([rx, ry, rx + rw, ry + rh], outline=border_ink, width=S(2))
                     except Exception:
-                        pass
+                        draw.rectangle([rx, ry, rx + rw, ry + rh], outline=border_ink, width=S(1))
                 else:
                     draw.rectangle([rx, ry, rx + rw, ry + rh], outline=border_ink, width=S(1))
 

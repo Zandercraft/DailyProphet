@@ -11,7 +11,7 @@ import os
 import shutil
 import json
 import zipfile
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 from .versioning import FormatVersion, CURRENT_TEMPLATE_VERSION, template_migration_pipeline
 from .layout_models import LayoutDefinition
 
@@ -171,12 +171,29 @@ def load_template_package(
         return template_data
 
 
+_INSTALLED_TEMPLATES_CACHE: Dict[Tuple[str, str, str], Dict[str, Dict[str, object]]] = {}
+
+
+def invalidate_template_cache() -> None:
+    """Invalidates the in-memory installed templates cache."""
+    _INSTALLED_TEMPLATES_CACHE.clear()
+
+
 def load_all_installed_templates(
-    installed_dir: Optional[str] = None, shipped_dir: Optional[str] = None, base_dir: str = "."
+    installed_dir: Optional[str] = None,
+    shipped_dir: Optional[str] = None,
+    base_dir: str = ".",
+    force_reload: bool = False,
 ) -> Dict[str, Dict[str, object]]:
     """Loads all .prophettemplate files from the installed directory, bootstrapping from shipped source if empty."""
-    inst_dir = installed_dir or os.path.join(base_dir, INSTALLED_TEMPLATES_DIR)
-    ship_dir = shipped_dir or os.path.join(base_dir, SHIPPED_TEMPLATES_DIR)
+    inst_dir = os.path.abspath(installed_dir or os.path.join(base_dir, INSTALLED_TEMPLATES_DIR))
+    ship_dir = os.path.abspath(shipped_dir or os.path.join(base_dir, SHIPPED_TEMPLATES_DIR))
+    base_abs = os.path.abspath(base_dir)
+
+    cache_key = (inst_dir, ship_dir, base_abs)
+    if not force_reload and cache_key in _INSTALLED_TEMPLATES_CACHE:
+        return _INSTALLED_TEMPLATES_CACHE[cache_key]
+
     os.makedirs(inst_dir, exist_ok=True)
 
     # If installed directory has no .prophettemplate files, copy over from shipped source
@@ -199,6 +216,7 @@ def load_all_installed_templates(
         except Exception as e:
             print(f"Error loading template {filename}: {e}")
 
+    _INSTALLED_TEMPLATES_CACHE[cache_key] = templates
     return templates
 
 
@@ -223,6 +241,7 @@ def save_installed_template(
             print(f"Warning: Could not create template backup: {e}")
 
     create_template_package(layout_id, layout_data, target_file, base_dir=base_dir)
+    invalidate_template_cache()
     return target_file
 
 
@@ -265,6 +284,8 @@ def delete_installed_template(layout_id: str, installed_dir: Optional[str] = Non
     if os.path.isfile(mask_path):
         os.remove(mask_path)
 
+    if deleted:
+        invalidate_template_cache()
     return deleted
 
 
@@ -289,4 +310,5 @@ def restore_template_from_shipped_or_backup(
         return None
 
     shutil.copy2(source_file, target_file)
+    invalidate_template_cache()
     return load_template_package(target_file, base_dir=base_dir)

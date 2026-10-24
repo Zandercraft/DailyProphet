@@ -9,7 +9,7 @@ from PIL import Image
 
 from typing import Optional, Dict
 from ..models import NewspaperEdition, Story, StoryPriority, PaperTheme
-from ..sample_data import get_original_hogwarts_edition, get_azkaban_edition
+from ..sample_data import get_original_hogwarts_edition
 from ..pdf_exporter import PublicationExporter
 from .layout_editor_window import LayoutEditorWindow
 from .preview_canvas import BroadsheetPreviewCanvas, PreviewToplevelWindow
@@ -29,8 +29,8 @@ class MainWindow(ctk.CTk):
         ctk.set_default_color_theme("dark-blue")
 
         self.title("The Daily Prophet - Newspaper Generator")
-        self.geometry("1320x860")
-        self.minsize(1080, 720)
+        self.geometry("1280x820")
+        self.minsize(960, 620)
 
         # Register Windows AppUserModelID for taskbar icon
         if sys.platform == "win32":
@@ -93,16 +93,16 @@ class MainWindow(ctk.CTk):
         self._setup_bottom_bar()
 
     def _setup_top_ribbon(self):
-        top_bar = ctk.CTkFrame(self, fg_color=Theme.HEADER_BG, corner_radius=0, height=60)
+        top_bar = ctk.CTkFrame(self, fg_color=Theme.HEADER_BG, corner_radius=0, height=52)
         top_bar.pack(fill="x", padx=0, pady=0)
 
         title_box = ctk.CTkFrame(top_bar, fg_color="transparent")
-        title_box.pack(side="left", padx=16, pady=8)
+        title_box.pack(side="left", padx=12, pady=6)
 
         if os.path.exists(self.icon_png):
             try:
                 logo_pil = Image.open(self.icon_png)
-                self.brand_logo_img = ctk.CTkImage(light_image=logo_pil, dark_image=logo_pil, size=(42, 42))
+                self.brand_logo_img = ctk.CTkImage(light_image=logo_pil, dark_image=logo_pil, size=(34, 34))
                 ctk.CTkLabel(title_box, image=self.brand_logo_img, text="").pack(side="left", padx=(0, 8))
             except Exception:
                 pass
@@ -113,49 +113,40 @@ class MainWindow(ctk.CTk):
         ctk.CTkLabel(
             titles_text_box,
             text="THE DAILY PROPHET",
-            font=ctk.CTkFont(family="Georgia", size=18, weight="bold"),
+            font=ctk.CTkFont(family="Georgia", size=15, weight="bold"),
             text_color=Theme.TEXT_PARCHMENT,
         ).pack(anchor="w")
 
         ctk.CTkLabel(
             titles_text_box,
             text="Wizarding Broadsheet Generator & Layout Publisher",
-            font=ctk.CTkFont(family="Georgia", size=10, slant="italic"),
+            font=ctk.CTkFont(family="Georgia", size=9, slant="italic"),
             text_color=Theme.TEXT_MUTED,
         ).pack(anchor="w")
 
-        # Command Buttons on Right
+        # Responsive Icon-First Toolbar on Right
         top_btns = ctk.CTkFrame(top_bar, fg_color="transparent")
-        top_btns.pack(side="right", padx=16, pady=10)
+        top_btns.pack(side="right", padx=12, pady=6)
 
         ctk.CTkButton(
             top_btns,
-            text=" Hogwarts Issue",
-            image=IconManager.get_icon("scroll-unfurled", size=13, pack="rpg"),
-            compound="left",
-            width=125,
-            fg_color=Theme.BTN_PRIMARY[0],
-            hover_color=Theme.BTN_PRIMARY[1],
-            command=self._load_hogwarts_original,
+            text="",
+            image=IconManager.get_icon("plus", size=14),
+            width=32,
+            height=30,
+            corner_radius=4,
+            fg_color=Theme.BTN_NEUTRAL[0],
+            hover_color=Theme.BTN_NEUTRAL[1],
+            command=self._new_project,
         ).pack(side="left", padx=2)
 
         ctk.CTkButton(
             top_btns,
-            text=" Azkaban Edition",
-            image=IconManager.get_icon("skull", size=13, pack="rpg"),
-            compound="left",
-            width=125,
-            fg_color=Theme.BTN_SECONDARY[0],
-            hover_color=Theme.BTN_SECONDARY[1],
-            command=self._load_azkaban_sample,
-        ).pack(side="left", padx=2)
-
-        ctk.CTkButton(
-            top_btns,
-            text=" Open...",
-            image=IconManager.get_icon("folder-open", size=13),
-            compound="left",
-            width=80,
+            text="",
+            image=IconManager.get_icon("folder-open", size=14),
+            width=32,
+            height=30,
+            corner_radius=4,
             fg_color=Theme.BTN_NEUTRAL[0],
             hover_color=Theme.BTN_NEUTRAL[1],
             command=self._open_project,
@@ -163,88 +154,54 @@ class MainWindow(ctk.CTk):
 
         ctk.CTkButton(
             top_btns,
-            text=" Save",
-            image=IconManager.get_icon("save", size=13),
-            compound="left",
-            width=70,
+            text="",
+            image=IconManager.get_icon("save", size=14),
+            width=32,
+            height=30,
+            corner_radius=4,
             fg_color=Theme.BTN_SECONDARY[0],
             hover_color=Theme.BTN_SECONDARY[1],
             command=self._save_project,
         ).pack(side="left", padx=2)
 
-        ctk.CTkButton(
-            top_btns,
-            text=" Save As...",
-            image=IconManager.get_icon("save", size=13),
-            compound="left",
-            width=90,
-            fg_color=Theme.BTN_SECONDARY[0],
-            hover_color=Theme.BTN_SECONDARY[1],
-            command=self._save_as_project,
-        ).pack(side="left", padx=2)
+        # Subtle separator
+        ctk.CTkFrame(top_btns, width=1, height=20, fg_color=Theme.BORDER_MEDIUM).pack(side="left", padx=6)
 
         ctk.CTkButton(
             top_btns,
-            text=" New",
-            image=IconManager.get_icon("plus", size=13),
+            text=" Hogwarts Issue",
+            image=IconManager.get_icon("scroll-unfurled", size=13, pack="rpg"),
             compound="left",
-            width=65,
-            fg_color=Theme.BTN_NEUTRAL[0],
-            hover_color=Theme.BTN_NEUTRAL[1],
-            command=self._new_project,
+            width=115,
+            height=30,
+            corner_radius=4,
+            font=ctk.CTkFont(size=10, weight="bold"),
+            fg_color=Theme.BTN_PRIMARY[0],
+            hover_color=Theme.BTN_PRIMARY[1],
+            command=self._load_hogwarts_original,
         ).pack(side="left", padx=2)
 
     def _setup_workspace_tab(self):
         parent = self.tab_stories
 
         # Page Ribbon Strip
-        self.page_ribbon = ctk.CTkFrame(parent, fg_color=Theme.HEADER_BG, height=38, corner_radius=6)
+        self.page_ribbon = ctk.CTkFrame(parent, fg_color=Theme.HEADER_BG, height=36, corner_radius=6)
         self.page_ribbon.pack(fill="x", padx=4, pady=(4, 6))
 
+        # Integrated page tabs container (holds tabs and add/delete buttons)
         self.pages_tabs_frame = ctk.CTkFrame(self.page_ribbon, fg_color="transparent")
         self.pages_tabs_frame.pack(side="left", padx=6, pady=4)
 
-        # Page action controls on right of ribbon
-        page_ctrls = ctk.CTkFrame(self.page_ribbon, fg_color="transparent")
-        page_ctrls.pack(side="right", padx=6, pady=4)
-
-        ctk.CTkButton(
-            page_ctrls,
-            text=" Add Page",
-            image=IconManager.get_icon("plus", size=12),
-            compound="left",
-            width=90,
-            height=26,
-            font=ctk.CTkFont(size=10, weight="bold"),
-            fg_color=Theme.BTN_SUCCESS[0],
-            hover_color=Theme.BTN_SUCCESS[1],
-            command=self._add_new_page,
-        ).pack(side="left", padx=2)
-
-        self.del_page_btn = ctk.CTkButton(
-            page_ctrls,
-            text=" Delete Page",
-            image=IconManager.get_icon("trash-2", size=12),
-            compound="left",
-            width=95,
-            height=26,
-            font=ctk.CTkFont(size=10),
-            fg_color=Theme.BTN_DANGER[0],
-            hover_color=Theme.BTN_DANGER[1],
-            command=self._delete_current_page,
-        )
-        self.del_page_btn.pack(side="left", padx=2)
-
-        # Layout Template Picker
+        # Right side of ribbon: Layout template picker & editor
         layout_box = ctk.CTkFrame(self.page_ribbon, fg_color="transparent")
-        layout_box.pack(side="left", padx=16, pady=4)
+        layout_box.pack(side="right", padx=6, pady=4)
 
         ctk.CTkLabel(
             layout_box,
             text=" Layout:",
             image=IconManager.get_icon("layout-grid", size=13),
             compound="left",
-            font=ctk.CTkFont(family="Georgia", size=11, weight="bold"),
+            font=ctk.CTkFont(family="Georgia", size=10, weight="bold"),
             text_color=Theme.TEXT_PARCHMENT,
         ).pack(side="left", padx=(0, 4))
 
@@ -253,7 +210,7 @@ class MainWindow(ctk.CTk):
         self.template_selector = ctk.CTkOptionMenu(
             layout_box,
             values=["Layout 1: Broadsheet Lead & Gazette"],
-            width=240,
+            width=170,
             height=26,
             font=ctk.CTkFont(size=10),
             fg_color=Theme.BTN_SECONDARY[0],
@@ -265,10 +222,11 @@ class MainWindow(ctk.CTk):
         ctk.CTkButton(
             layout_box,
             text=" Slots",
-            image=IconManager.get_icon("pencil", size=12),
+            image=IconManager.get_icon("pencil", size=11),
             compound="left",
-            width=70,
+            width=58,
             height=26,
+            corner_radius=4,
             font=ctk.CTkFont(size=10),
             fg_color=Theme.BTN_NEUTRAL[0],
             hover_color=Theme.BTN_NEUTRAL[1],
@@ -280,80 +238,79 @@ class MainWindow(ctk.CTk):
         self.workspace.pack(fill="both", expand=True, padx=2, pady=2)
 
         # 1. LEFT PANE: Stories Navigator
-        self.left_pane = ctk.CTkFrame(self.workspace, width=270, fg_color=Theme.PANEL_BG)
+        self.left_pane = ctk.CTkFrame(self.workspace, width=225, fg_color=Theme.PANEL_BG)
         self.left_pane.pack(side="left", fill="both", expand=False, padx=(0, 4))
         self.left_pane.pack_propagate(False)
 
         nav_header = ctk.CTkFrame(self.left_pane, fg_color="transparent")
-        nav_header.pack(fill="x", padx=10, pady=(8, 4))
+        nav_header.pack(fill="x", padx=8, pady=(6, 4))
 
         self.page_stories_lbl = ctk.CTkLabel(
-            nav_header, text="Page Stories:", font=ctk.CTkFont(size=12, weight="bold"), text_color=Theme.TEXT_PARCHMENT
+            nav_header, text="Stories", font=ctk.CTkFont(size=11, weight="bold"), text_color=Theme.TEXT_PARCHMENT
         )
         self.page_stories_lbl.pack(side="left")
 
         ctk.CTkButton(
             nav_header,
-            text=" Add",
+            text="",
             image=IconManager.get_icon("plus", size=12),
-            compound="left",
-            width=65,
+            width=28,
             height=24,
-            font=ctk.CTkFont(size=10, weight="bold"),
+            corner_radius=4,
             fg_color=Theme.BTN_PRIMARY[0],
             hover_color=Theme.BTN_PRIMARY[1],
             command=self._add_story,
         ).pack(side="right")
 
         self.stories_scroll = ctk.CTkScrollableFrame(self.left_pane, fg_color="transparent")
-        self.stories_scroll.pack(fill="both", expand=True, padx=6, pady=4)
+        self.stories_scroll.pack(fill="both", expand=True, padx=4, pady=2)
 
         # Story Reorder / Move toolbar below list
         nav_tools = ctk.CTkFrame(self.left_pane, fg_color="transparent")
-        nav_tools.pack(fill="x", padx=6, pady=(4, 8))
+        nav_tools.pack(fill="x", padx=4, pady=(4, 6))
 
         ctk.CTkButton(
             nav_tools,
-            text=" Up",
-            image=IconManager.get_icon("arrow-up", size=11),
-            compound="left",
-            width=55,
+            text="",
+            image=IconManager.get_icon("arrow-up", size=12),
+            width=30,
             height=24,
-            font=ctk.CTkFont(size=10),
+            corner_radius=4,
             fg_color=Theme.BTN_CONTROL[0],
             hover_color=Theme.BTN_CONTROL[1],
             command=self._move_story_up,
         ).pack(side="left", padx=1)
         ctk.CTkButton(
             nav_tools,
-            text=" Down",
-            image=IconManager.get_icon("arrow-down", size=11),
-            compound="left",
-            width=65,
+            text="",
+            image=IconManager.get_icon("arrow-down", size=12),
+            width=30,
             height=24,
-            font=ctk.CTkFont(size=10),
+            corner_radius=4,
             fg_color=Theme.BTN_CONTROL[0],
             hover_color=Theme.BTN_CONTROL[1],
             command=self._move_story_down,
         ).pack(side="left", padx=1)
         ctk.CTkButton(
             nav_tools,
-            text=" Move...",
-            width=65,
+            text=" Move",
+            image=IconManager.get_icon("arrow-right", size=11),
+            compound="left",
+            width=54,
             height=24,
-            font=ctk.CTkFont(size=10),
+            corner_radius=4,
+            font=ctk.CTkFont(size=9),
             fg_color=Theme.BTN_SECONDARY[0],
             hover_color=Theme.BTN_SECONDARY[1],
             command=self._move_story_to_page_dialog,
         ).pack(side="left", padx=1)
         ctk.CTkButton(
             nav_tools,
-            text=" Del",
-            image=IconManager.get_icon("trash-2", size=11),
-            compound="left",
-            width=50,
+            text="",
+            image=IconManager.get_icon("trash-2", size=12),
+            width=30,
             height=24,
-            font=ctk.CTkFont(size=10),
+            corner_radius=4,
             fg_color=Theme.BTN_DANGER[0],
             hover_color=Theme.BTN_DANGER[1],
             command=self._delete_selected_story,
@@ -366,7 +323,7 @@ class MainWindow(ctk.CTk):
         self.center_composer.pack(side="left", fill="both", expand=True, padx=4)
 
         # 3. RIGHT PANE: Live Broadsheet Preview Dock
-        self.right_dock = ctk.CTkFrame(self.workspace, width=470, fg_color="transparent")
+        self.right_dock = ctk.CTkFrame(self.workspace, width=390, fg_color="transparent")
         self.right_dock.pack(side="right", fill="both", expand=False, padx=(4, 0))
         self.right_dock.pack_propagate(False)
 
@@ -383,45 +340,47 @@ class MainWindow(ctk.CTk):
         self._refresh_layout_options()
 
     def _setup_bottom_bar(self):
-        bottom_bar = ctk.CTkFrame(self, fg_color=("#2e261f", "#1c1713"), corner_radius=0, height=54)
-        bottom_bar.pack(fill="x", padx=0, pady=0)
+        bottom_bar = ctk.CTkFrame(self, fg_color=Theme.HEADER_BG, corner_radius=0, height=38)
+        bottom_bar.pack(fill="x", side="bottom", padx=0, pady=0)
 
         self.status_lbl = ctk.CTkLabel(
             bottom_bar,
-            text="Ready. Daily Prophet broadsheet loaded.",
-            font=ctk.CTkFont(size=11),
-            text_color="#c2b6a4",
+            text="The Daily Prophet ready.",
+            font=ctk.CTkFont(size=10),
+            text_color=Theme.TEXT_MUTED,
         )
-        self.status_lbl.pack(side="left", padx=16, pady=10)
+        self.status_lbl.pack(side="left", padx=14, pady=6)
 
         action_btns = ctk.CTkFrame(bottom_bar, fg_color="transparent")
-        action_btns.pack(side="right", padx=16, pady=8)
+        action_btns.pack(side="right", padx=10, pady=4)
 
         ctk.CTkButton(
             action_btns,
-            text=" Export PDF (Multi-Page)",
-            image=IconManager.get_icon("file-text", size=14),
+            text=" Export PDF",
+            image=IconManager.get_icon("file-text", size=13),
             compound="left",
-            width=175,
-            height=32,
-            font=ctk.CTkFont(size=11, weight="bold"),
+            width=105,
+            height=26,
+            corner_radius=4,
+            font=ctk.CTkFont(size=10, weight="bold"),
             fg_color=Theme.BTN_SUCCESS[0],
             hover_color=Theme.BTN_SUCCESS[1],
             command=self._export_pdf,
-        ).pack(side="left", padx=4)
+        ).pack(side="left", padx=2)
 
         ctk.CTkButton(
             action_btns,
-            text=" Export Images / GIF",
-            image=IconManager.get_icon("image", size=14),
+            text=" Export Images",
+            image=IconManager.get_icon("image", size=13),
             compound="left",
-            width=160,
-            height=32,
-            font=ctk.CTkFont(size=11, weight="bold"),
+            width=110,
+            height=26,
+            corner_radius=4,
+            font=ctk.CTkFont(size=10, weight="bold"),
             fg_color=Theme.BTN_NEUTRAL[0],
             hover_color=Theme.BTN_NEUTRAL[1],
             command=self._export_images_dialog,
-        ).pack(side="left", padx=4)
+        ).pack(side="left", padx=2)
 
     def _setup_settings_tab(self):
         parent = self.tab_settings
@@ -571,24 +530,51 @@ class MainWindow(ctk.CTk):
 
             tab_btn = ctk.CTkButton(
                 self.pages_tabs_frame,
-                text=f"Page {page.page_number}: {page.title}",
+                text=f"Page {page.page_number}",
                 font=ctk.CTkFont(size=10, weight=font_weight),
                 fg_color=btn_fg,
                 hover_color=btn_hover,
+                width=62,
                 height=26,
+                corner_radius=4,
                 command=lambda p_idx=idx: self._on_page_tab_clicked(p_idx),
             )
             tab_btn.pack(side="left", padx=2)
 
-        self.del_page_btn.configure(state="normal" if len(pages) > 1 else "disabled")
-        active_page = self.edition.get_page(self.current_page_idx)
-        self.page_stories_lbl.configure(text=f"{active_page.title} Stories:")
+        # Quick Add Page button
+        ctk.CTkButton(
+            self.pages_tabs_frame,
+            text="",
+            image=IconManager.get_icon("plus", size=12),
+            width=26,
+            height=26,
+            corner_radius=4,
+            fg_color=Theme.BTN_SUCCESS[0],
+            hover_color=Theme.BTN_SUCCESS[1],
+            command=self._add_new_page,
+        ).pack(side="left", padx=2)
 
-        # Update layout dropdown for active page
-        if active_page.layout_id in self.layout_meta:
-            label = [k for k, v in self.layout_map.items() if v == active_page.layout_id]
-            if label:
-                self.template_selector.set(label[0])
+        # Quick Delete Page button
+        if len(pages) > 1:
+            ctk.CTkButton(
+                self.pages_tabs_frame,
+                text="",
+                image=IconManager.get_icon("trash-2", size=12),
+                width=26,
+                height=26,
+                corner_radius=4,
+                fg_color=Theme.BTN_DANGER[0],
+                hover_color=Theme.BTN_DANGER[1],
+                command=self._delete_current_page,
+            ).pack(side="left", padx=2)
+
+        active_page = self.edition.get_page(self.current_page_idx)
+        if active_page:
+            self.page_stories_lbl.configure(text=f"Stories (P{active_page.page_number})")
+            if active_page.layout_id in self.layout_meta:
+                label = [k for k, v in self.layout_map.items() if v == active_page.layout_id]
+                if label:
+                    self.template_selector.set(label[0])
 
     def _on_page_tab_clicked(self, page_idx: int):
         self.current_page_idx = page_idx
@@ -846,6 +832,12 @@ class MainWindow(ctk.CTk):
             self.status_lbl.configure(text="Preview detached to secondary monitor. Main window expanded.")
 
     def _update_preview(self):
+        if getattr(self, "_preview_timer", None):
+            self.after_cancel(self._preview_timer)
+        self._preview_timer = self.after(50, self._do_refresh_preview)
+
+    def _do_refresh_preview(self):
+        self._preview_timer = None
         self.preview_canvas.refresh_preview()
         if self.floating_preview_win:
             self.floating_preview_win.preview_canvas.refresh_preview()
@@ -1021,12 +1013,6 @@ class MainWindow(ctk.CTk):
         self.current_page_idx = 0
         self._load_edition_into_ui()
         self.status_lbl.configure(text="Loaded Hogwarts Community Edition preset.")
-
-    def _load_azkaban_sample(self):
-        self.edition = get_azkaban_edition(self.base_dir)
-        self.current_page_idx = 0
-        self._load_edition_into_ui()
-        self.status_lbl.configure(text="Loaded Azkaban Breakout Special Issue.")
 
     def _new_project(self):
         if messagebox.askyesno("New Project", "Start a blank new newspaper project?", parent=self):

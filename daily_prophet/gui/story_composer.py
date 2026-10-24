@@ -67,10 +67,10 @@ class StoryComposer(ctk.CTkFrame):
 
         ctk.CTkLabel(
             header_bar,
-            text=" Article Composer",
+            text=" Composer",
             image=IconManager.get_icon("pencil", size=13),
             compound="left",
-            font=ctk.CTkFont(size=12, weight="bold"),
+            font=ctk.CTkFont(size=11, weight="bold"),
             text_color=Theme.TEXT_PARCHMENT,
         ).pack(side="left", padx=8)
 
@@ -78,35 +78,36 @@ class StoryComposer(ctk.CTkFrame):
         self.archetype_menu = ctk.CTkOptionMenu(
             header_bar,
             values=[
-                "Select Archetype Preset...",
+                "Archetypes...",
                 "Breaking Scandal / Alert",
                 "Ministry Official Decree",
                 "Rita Skeeter Exclusive",
                 "Quidditch Match Report",
                 "Hogwarts Notice & Snippet",
             ],
-            width=180,
+            width=145,
             height=24,
             font=ctk.CTkFont(size=10),
             fg_color=Theme.BTN_NEUTRAL[0],
             button_color=Theme.BTN_NEUTRAL[1],
             command=self._apply_archetype,
         )
-        self.archetype_menu.pack(side="left", padx=4)
+        self.archetype_menu.pack(side="left", padx=3)
 
         # Lorem Ipsum Button
         ctk.CTkButton(
             header_bar,
-            text=" Wizarding Lorem Ipsum",
+            text=" Lorem Ipsum",
             image=IconManager.get_icon("sparkles", size=12),
             compound="left",
-            width=150,
+            width=105,
             height=24,
+            corner_radius=4,
             font=ctk.CTkFont(size=10),
             fg_color=Theme.BTN_SECONDARY[0],
             hover_color=Theme.BTN_SECONDARY[1],
             command=self._insert_lorem_ipsum,
-        ).pack(side="left", padx=4)
+        ).pack(side="left", padx=3)
 
         # 2. Main Scrollable Editing Body
         scroll_container = ctk.CTkScrollableFrame(self, fg_color="transparent")
@@ -116,7 +117,9 @@ class StoryComposer(ctk.CTkFrame):
         ctk.CTkLabel(scroll_container, text="Headline (Main Title):", font=ctk.CTkFont(size=11, weight="bold")).pack(
             anchor="w", padx=6, pady=(4, 1)
         )
-        self.headline_entry = ctk.CTkEntry(scroll_container, placeholder_text="e.g. MASS BREAKOUT FROM AZKABAN!")
+        self.headline_entry = ctk.CTkEntry(
+            scroll_container, placeholder_text="e.g. HOGWARTS UNDERGOES MYSTERIOUS TRANSFORMATION!"
+        )
         self.headline_entry.pack(fill="x", padx=6, pady=(0, 4))
         self.headline_entry.bind("<KeyRelease>", self._schedule_update)
 
@@ -125,7 +128,8 @@ class StoryComposer(ctk.CTkFrame):
             anchor="w", padx=6, pady=(2, 1)
         )
         self.subhead_entry = ctk.CTkEntry(
-            scroll_container, placeholder_text="e.g. Ministry confirms Sirius Black at large"
+            scroll_container,
+            placeholder_text="e.g. Castle corridors rearranged overnight! Ministry denies involvement.",
         )
         self.subhead_entry.pack(fill="x", padx=6, pady=(0, 4))
         self.subhead_entry.bind("<KeyRelease>", self._schedule_update)
@@ -324,7 +328,7 @@ class StoryComposer(ctk.CTkFrame):
     def _schedule_update(self, event=None):
         if self._debounce_timer:
             self.after_cancel(self._debounce_timer)
-        self._debounce_timer = self.after(150, self._sync_to_story)
+        self._debounce_timer = self.after(250, self._sync_to_story)
 
     def _on_field_changed(self, choice=None):
         self._sync_to_story()

@@ -94,7 +94,6 @@ Task automation is configured via `poethepoet` and `ruff`:
 
 Use the top ribbon commands to load pre-configured editions immediately:
 - **Hogwarts Issue**: The Hogwarts Community & Castle Dispatch edition with feature stories and student lore.
-- **Azkaban Edition**: The famous *"MASS BREAKOUT FROM AZKABAN! (Sirius Black at Large)"* front-page broadsheet.
 
 ---
 
@@ -139,7 +138,7 @@ TheDailyProphet/
     ├── pdf_exporter.py         # Native Multi-Page PDF, Image & GIF exporter
     ├── template_package.py     # .prophettemplate archive packager & loader
     ├── versioning.py           # Format versioning & schema migration pipelines
-    ├── sample_data.py          # Built-in Hogwarts & Azkaban issue editions
+    ├── sample_data.py          # Built-in Hogwarts issue edition
     └── gui/
         ├── main_window.py      # Main Word-inspired 3-pane publication workspace
         ├── story_composer.py   # In-place article composer with archetypes & auto-fit

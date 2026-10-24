@@ -15,6 +15,9 @@ from ..native_renderer import NativeBroadsheetRenderer
 from .theme import Theme, IconManager
 
 
+PREVIEW_BASE_SCALE = 1.0
+
+
 class BroadsheetPreviewCanvas(ctk.CTkFrame):
     """Interactive canvas widget displaying a live-updating newspaper page."""
 
@@ -189,10 +192,10 @@ class BroadsheetPreviewCanvas(ctk.CTkFrame):
             layout_def = all_defs[layout_id]
         self._current_layout_slots = layout_def.get("slots", [])
 
-        # Render native broadsheet image at high resolution
+        # Render native broadsheet image at preview scale
         try:
             self._rendered_pil = self.renderer.render_slot_layout(
-                self.edition, template_id=layout_id, scale=1.5, page=page
+                self.edition, template_id=layout_id, scale=PREVIEW_BASE_SCALE, page=page
             )
         except Exception:
             self._rendered_pil = None
@@ -247,19 +250,19 @@ class BroadsheetPreviewCanvas(ctk.CTkFrame):
             scale_h = (c_h - pad) / orig_h
             scale = max(0.15, min(scale_w, scale_h))
         elif self.zoom_mode == "50%":
-            scale = 0.5 / 1.5
+            scale = 0.5 / PREVIEW_BASE_SCALE
         elif self.zoom_mode == "75%":
-            scale = 0.75 / 1.5
+            scale = 0.75 / PREVIEW_BASE_SCALE
         elif self.zoom_mode == "100%":
-            scale = 1.0 / 1.5
+            scale = 1.0 / PREVIEW_BASE_SCALE
         elif self.zoom_mode == "150%":
-            scale = 1.5 / 1.5
+            scale = 1.5 / PREVIEW_BASE_SCALE
         else:
             scale = 0.4
 
         disp_w = int(orig_w * scale)
         disp_h = int(orig_h * scale)
-        self._current_canvas_scale = scale * 1.5  # Relative to base template coordinates
+        self._current_canvas_scale = scale * PREVIEW_BASE_SCALE  # Relative to base template coordinates
 
         resized = self._rendered_pil.resize((disp_w, disp_h), Image.Resampling.LANCZOS)
         self._displayed_photo = ImageTk.PhotoImage(resized)
