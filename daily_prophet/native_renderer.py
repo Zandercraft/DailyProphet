@@ -242,6 +242,83 @@ def _draw_story_paragraphs(
     return cur_y
 
 
+def map_slots_to_stories(
+    page_stories: List[Story], slots: List[Dict[str, object]]
+) -> Tuple[Dict[str, str], Dict[str, List[str]]]:
+    """Deterministically maps template slots to stories and vice-versa based on layout geometry and priorities.
+
+    Returns:
+        (slot_to_story, story_to_slots)
+        slot_to_story: dict mapping slot_id -> story_id
+        story_to_slots: dict mapping story_id -> list of slot_ids assigned to that story
+    """
+    if not page_stories or not slots:
+        return {}, {}
+
+    cover_stories = [s for s in page_stories if s.priority == StoryPriority.COVER.value]
+    major_stories = [s for s in page_stories if s.priority == StoryPriority.MAJOR.value]
+
+    cover = cover_stories[0] if cover_stories else page_stories[0]
+    major = major_stories[0] if major_stories else (page_stories[1] if len(page_stories) > 1 else cover)
+
+    has_major_slot = any(
+        ("feature" in s.get("id", "") or "sidebar" in s.get("id", "") or "story_2" in s.get("id", ""))
+        for s in slots
+        if s.get("type") in ["headline", "subheadline", "body", "column", "photo"]
+    )
+
+    if has_major_slot:
+        other_stories = [s for s in page_stories if s.id != cover.id and s.id != major.id]
+    else:
+        other_stories = [s for s in page_stories if s.id != cover.id]
+
+    if not other_stories:
+        other_stories = [cover]
+
+    story_cursor = 0
+    slot_to_story: Dict[str, str] = {}
+    story_to_slots: Dict[str, List[str]] = {s.id: [] for s in page_stories}
+
+    for slot in slots:
+        sid = slot.get("id", "")
+        stype = slot.get("type", "")
+        if stype in ["headline", "subheadline"]:
+            target = (
+                cover
+                if ("lead" in sid or "main" in sid or "hero" in sid)
+                else (
+                    major
+                    if ("feature" in sid or "top" in sid or "story_2" in sid)
+                    else other_stories[story_cursor % len(other_stories)]
+                )
+            )
+            slot_to_story[sid] = target.id
+            if sid not in story_to_slots[target.id]:
+                story_to_slots[target.id].append(sid)
+        elif stype == "photo":
+            target = (
+                cover
+                if ("lead" in sid or "hero" in sid or "top" in sid)
+                else (
+                    major
+                    if ("feature" in sid or "story_2" in sid)
+                    else other_stories[story_cursor % len(other_stories)]
+                )
+            )
+            slot_to_story[sid] = target.id
+            if sid not in story_to_slots[target.id]:
+                story_to_slots[target.id].append(sid)
+        elif stype in ["body", "column"]:
+            target = cover if ("lead" in sid or "hero" in sid) else other_stories[story_cursor % len(other_stories)]
+            if stype == "column":
+                story_cursor += 1
+            slot_to_story[sid] = target.id
+            if sid not in story_to_slots[target.id]:
+                story_to_slots[target.id].append(sid)
+
+    return slot_to_story, story_to_slots
+
+
 class NativeBroadsheetRenderer:
     """Composites an authentic, print-ready Harry Potter broadsheet newspaper."""
 
@@ -362,20 +439,11 @@ class NativeBroadsheetRenderer:
         else:
             page_stories = edition.stories
 
-        cover_stories = [s for s in page_stories if s.priority == StoryPriority.COVER.value]
-        major_stories = [s for s in page_stories if s.priority == StoryPriority.MAJOR.value]
+        slots = layout_def.get("slots", [])
+        slot_to_story, _ = map_slots_to_stories(page_stories, slots)
+        story_by_id = {s.id: s for s in page_stories}
+        default_story = page_stories[0] if page_stories else Story(headline="HOGWARTS NEWS")
 
-        cover = (
-            cover_stories[0]
-            if cover_stories
-            else (page_stories[0] if page_stories else Story(headline="HOGWARTS NEWS"))
-        )
-        major = major_stories[0] if major_stories else (page_stories[1] if len(page_stories) > 1 else cover)
-        other_stories = [s for s in page_stories if s != cover and s != major]
-        if not other_stories:
-            other_stories = [cover, major]
-
-        story_cursor = 0
         lore_cursor = 0
         lore_items = [
             (edition.lore_title_1, edition.lore_body_1),
@@ -383,10 +451,11 @@ class NativeBroadsheetRenderer:
             ("WORDS OF WISDOM", f'"{edition.quote_text}" — {edition.quote_author}'),
         ]
 
-        for slot in layout_def.get("slots", []):
+        for slot in slots:
             sid = slot.get("id", "")
             stype = slot.get("type", "body")
             rx, ry, rw, rh = [S(v) for v in slot["rect"]]
+            target_story = story_by_id.get(slot_to_story.get(sid, ""), default_story)
 
             if stype == "title":
                 t_font_sz = min(S(48), max(S(18), int(rh * 0.7)))
@@ -459,13 +528,6 @@ class NativeBroadsheetRenderer:
                 draw.text((rx + max(0, (rw - tkw) // 2), ry + S(4)), tk_text, font=tk_font, fill=ink_black)
 
             elif stype in ["headline", "subheadline"]:
-                target_story = (
-                    cover
-                    if "lead" in sid or "main" in sid or "hero" in sid
-                    else (
-                        major if "feature" in sid or "top" in sid else other_stories[story_cursor % len(other_stories)]
-                    )
-                )
                 text_str = (
                     target_story.headline.upper()
                     if stype == "headline"
@@ -481,11 +543,6 @@ class NativeBroadsheetRenderer:
                     cy += font_size + S(4)
 
             elif stype == "photo":
-                target_story = (
-                    cover
-                    if "lead" in sid or "hero" in sid or "top" in sid
-                    else (major if "feature" in sid else other_stories[story_cursor % len(other_stories)])
-                )
                 img_path = (
                     target_story.image_path
                     if target_story.image_path and os.path.exists(target_story.image_path)
@@ -509,11 +566,6 @@ class NativeBroadsheetRenderer:
                     draw.rectangle([rx, ry, rx + rw, ry + rh], outline=border_ink, width=S(1))
 
             elif stype in ["body", "column"]:
-                target_story = (
-                    cover if "lead" in sid or "hero" in sid else other_stories[story_cursor % len(other_stories)]
-                )
-                if stype == "column":
-                    story_cursor += 1
                 paras = [p.strip() for p in target_story.body.split("\n\n") if p.strip()]
                 b_font = self.fonts.get_font("body", S(9.5))
                 b_bold = self.fonts.get_font("headline", S(9.5))

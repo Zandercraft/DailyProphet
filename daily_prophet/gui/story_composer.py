@@ -13,6 +13,7 @@ import customtkinter as ctk
 
 from ..models import Story, StoryPriority, BoxStyle
 from .theme import Theme, IconManager
+from .tooltip import add_tooltip
 from .library_dialog import ImageLibraryDialog
 
 
@@ -68,9 +69,9 @@ class StoryComposer(ctk.CTkFrame):
         ctk.CTkLabel(
             header_bar,
             text=" Composer",
-            image=IconManager.get_icon("pencil", size=13),
+            image=IconManager.get_icon("pencil", size=14),
             compound="left",
-            font=ctk.CTkFont(size=11, weight="bold"),
+            font=ctk.CTkFont(size=13, weight="bold"),
             text_color=Theme.TEXT_PARCHMENT,
         ).pack(side="left", padx=8)
 
@@ -85,51 +86,59 @@ class StoryComposer(ctk.CTkFrame):
                 "Quidditch Match Report",
                 "Hogwarts Notice & Snippet",
             ],
-            width=145,
-            height=24,
-            font=ctk.CTkFont(size=10),
+            width=150,
+            height=28,
+            font=ctk.CTkFont(size=11),
             fg_color=Theme.BTN_NEUTRAL[0],
             button_color=Theme.BTN_NEUTRAL[1],
             command=self._apply_archetype,
         )
         self.archetype_menu.pack(side="left", padx=3)
+        add_tooltip(self.archetype_menu, "Apply Wizarding Archetype Preset")
 
         # Lorem Ipsum Button
-        ctk.CTkButton(
+        lorem_btn = ctk.CTkButton(
             header_bar,
             text=" Lorem Ipsum",
-            image=IconManager.get_icon("sparkles", size=12),
+            image=IconManager.get_icon("sparkles", size=13),
             compound="left",
-            width=105,
-            height=24,
+            width=115,
+            height=28,
             corner_radius=4,
-            font=ctk.CTkFont(size=10),
+            font=ctk.CTkFont(size=11),
             fg_color=Theme.BTN_SECONDARY[0],
             hover_color=Theme.BTN_SECONDARY[1],
             command=self._insert_lorem_ipsum,
-        ).pack(side="left", padx=3)
+        )
+        lorem_btn.pack(side="left", padx=3)
+        add_tooltip(lorem_btn, "Insert Magical Lorem Ipsum Placeholder Content")
 
         # 2. Main Scrollable Editing Body
         scroll_container = ctk.CTkScrollableFrame(self, fg_color="transparent")
         scroll_container.pack(fill="both", expand=True, padx=4, pady=2)
 
         # Headline
-        ctk.CTkLabel(scroll_container, text="Headline (Main Title):", font=ctk.CTkFont(size=11, weight="bold")).pack(
+        ctk.CTkLabel(scroll_container, text="Headline (Main Title):", font=ctk.CTkFont(size=12, weight="bold")).pack(
             anchor="w", padx=6, pady=(4, 1)
         )
         self.headline_entry = ctk.CTkEntry(
-            scroll_container, placeholder_text="e.g. HOGWARTS UNDERGOES MYSTERIOUS TRANSFORMATION!"
+            scroll_container,
+            placeholder_text="e.g. HOGWARTS UNDERGOES MYSTERIOUS TRANSFORMATION!",
+            font=ctk.CTkFont(family="Georgia", size=13, weight="bold"),
+            height=32,
         )
         self.headline_entry.pack(fill="x", padx=6, pady=(0, 4))
         self.headline_entry.bind("<KeyRelease>", self._schedule_update)
 
         # Subheadline
-        ctk.CTkLabel(scroll_container, text="Subheadline / Kicker:", font=ctk.CTkFont(size=11)).pack(
+        ctk.CTkLabel(scroll_container, text="Subheadline / Kicker:", font=ctk.CTkFont(size=12)).pack(
             anchor="w", padx=6, pady=(2, 1)
         )
         self.subhead_entry = ctk.CTkEntry(
             scroll_container,
             placeholder_text="e.g. Castle corridors rearranged overnight! Ministry denies involvement.",
+            font=ctk.CTkFont(size=12),
+            height=28,
         )
         self.subhead_entry.pack(fill="x", padx=6, pady=(0, 4))
         self.subhead_entry.bind("<KeyRelease>", self._schedule_update)
@@ -140,15 +149,17 @@ class StoryComposer(ctk.CTkFrame):
 
         col1 = ctk.CTkFrame(meta_grid, fg_color="transparent")
         col1.pack(side="left", fill="x", expand=True, padx=(0, 4))
-        ctk.CTkLabel(col1, text="Author / Byline:", font=ctk.CTkFont(size=10)).pack(anchor="w")
-        self.author_entry = ctk.CTkEntry(col1, placeholder_text="By Rita Skeeter")
+        ctk.CTkLabel(col1, text="Author / Byline:", font=ctk.CTkFont(size=11)).pack(anchor="w")
+        self.author_entry = ctk.CTkEntry(col1, placeholder_text="By Rita Skeeter", font=ctk.CTkFont(size=12), height=28)
         self.author_entry.pack(fill="x")
         self.author_entry.bind("<KeyRelease>", self._schedule_update)
 
         col2 = ctk.CTkFrame(meta_grid, fg_color="transparent")
         col2.pack(side="right", fill="x", expand=True, padx=(4, 0))
-        ctk.CTkLabel(col2, text="Location Tag:", font=ctk.CTkFont(size=10)).pack(anchor="w")
-        self.location_entry = ctk.CTkEntry(col2, placeholder_text="LONDON / HOGSMEADE")
+        ctk.CTkLabel(col2, text="Location Tag:", font=ctk.CTkFont(size=11)).pack(anchor="w")
+        self.location_entry = ctk.CTkEntry(
+            col2, placeholder_text="LONDON / HOGSMEADE", font=ctk.CTkFont(size=12), height=28
+        )
         self.location_entry.pack(fill="x")
         self.location_entry.bind("<KeyRelease>", self._schedule_update)
 
@@ -156,7 +167,7 @@ class StoryComposer(ctk.CTkFrame):
         prio_strip = ctk.CTkFrame(scroll_container, fg_color=Theme.CARD_BG, corner_radius=4)
         prio_strip.pack(fill="x", padx=6, pady=4)
 
-        ctk.CTkLabel(prio_strip, text="Priority Role:", font=ctk.CTkFont(size=10, weight="bold")).pack(
+        ctk.CTkLabel(prio_strip, text="Priority Role:", font=ctk.CTkFont(size=11, weight="bold")).pack(
             side="left", padx=8, pady=4
         )
         self.priority_var = ctk.StringVar(value=StoryPriority.COVER.value)
@@ -165,15 +176,16 @@ class StoryComposer(ctk.CTkFrame):
             variable=self.priority_var,
             values=StoryPriority.choices(),
             width=180,
-            height=24,
-            font=ctk.CTkFont(size=10),
+            height=28,
+            font=ctk.CTkFont(size=11),
             command=self._on_field_changed,
         )
         self.priority_menu.pack(side="left", padx=4, pady=4)
+        add_tooltip(self.priority_menu, "Assign Story Priority / Page Placement Role")
 
         # Auto-Fit & Word Count Indicator
         self.word_meter_lbl = ctk.CTkLabel(
-            prio_strip, text="Words: 0 • Slot Fit: Optimal", font=ctk.CTkFont(size=10), text_color="#6bb377"
+            prio_strip, text="Words: 0 • Slot Fit: Optimal", font=ctk.CTkFont(size=11), text_color="#6bb377"
         )
         self.word_meter_lbl.pack(side="right", padx=10, pady=4)
 
@@ -181,9 +193,9 @@ class StoryComposer(ctk.CTkFrame):
         body_hdr = ctk.CTkFrame(scroll_container, fg_color="transparent")
         body_hdr.pack(fill="x", padx=6, pady=(4, 1))
 
-        ctk.CTkLabel(body_hdr, text="Article Body Text:", font=ctk.CTkFont(size=11, weight="bold")).pack(side="left")
+        ctk.CTkLabel(body_hdr, text="Article Body Text:", font=ctk.CTkFont(size=12, weight="bold")).pack(side="left")
 
-        self.body_text = ctk.CTkTextbox(scroll_container, height=160, font=ctk.CTkFont(size=11))
+        self.body_text = ctk.CTkTextbox(scroll_container, height=180, font=ctk.CTkFont(size=12))
         self.body_text.pack(fill="both", expand=True, padx=6, pady=(0, 6))
         self.body_text.bind("<KeyRelease>", self._schedule_update)
 
@@ -191,7 +203,7 @@ class StoryComposer(ctk.CTkFrame):
         art_box = ctk.CTkFrame(scroll_container, fg_color=Theme.CARD_BG, corner_radius=4)
         art_box.pack(fill="x", padx=6, pady=4)
 
-        ctk.CTkLabel(art_box, text="Photograph & Character Cutout:", font=ctk.CTkFont(size=11, weight="bold")).pack(
+        ctk.CTkLabel(art_box, text="Photograph & Character Cutout:", font=ctk.CTkFont(size=12, weight="bold")).pack(
             anchor="w", padx=8, pady=(6, 2)
         )
 
@@ -200,35 +212,45 @@ class StoryComposer(ctk.CTkFrame):
 
         self.photo_path_var = ctk.StringVar()
         self.photo_entry = ctk.CTkEntry(
-            art_row, textvariable=self.photo_path_var, placeholder_text="No photo selected", height=24
+            art_row,
+            textvariable=self.photo_path_var,
+            placeholder_text="No photo selected",
+            font=ctk.CTkFont(size=11),
+            height=28,
         )
         self.photo_entry.pack(side="left", fill="x", expand=True, padx=(0, 6))
 
-        ctk.CTkButton(
+        lib_btn = ctk.CTkButton(
             art_row,
             text=" Library...",
-            image=IconManager.get_icon("image", size=12),
+            image=IconManager.get_icon("image", size=13),
             compound="left",
-            width=90,
-            height=24,
-            font=ctk.CTkFont(size=10),
+            width=95,
+            height=28,
+            font=ctk.CTkFont(size=11),
             command=self._open_library,
-        ).pack(side="left", padx=2)
+        )
+        lib_btn.pack(side="left", padx=2)
+        add_tooltip(lib_btn, "Browse Project Artwork & Illustrations Library")
 
-        ctk.CTkButton(
+        clear_btn = ctk.CTkButton(
             art_row,
             text=" Clear",
-            image=IconManager.get_icon("x", size=10),
+            image=IconManager.get_icon("x", size=11),
             compound="left",
-            width=60,
-            height=24,
-            font=ctk.CTkFont(size=10),
+            width=65,
+            height=28,
+            font=ctk.CTkFont(size=11),
             fg_color=Theme.BTN_CONTROL[0],
             command=self._clear_photo,
-        ).pack(side="left", padx=2)
+        )
+        clear_btn.pack(side="left", padx=2)
+        add_tooltip(clear_btn, "Clear Attached Photograph")
 
         # Caption
-        self.caption_entry = ctk.CTkEntry(art_box, placeholder_text="Photo caption...", height=24)
+        self.caption_entry = ctk.CTkEntry(
+            art_box, placeholder_text="Photo caption...", font=ctk.CTkFont(size=11), height=28
+        )
         self.caption_entry.pack(fill="x", padx=8, pady=(0, 6))
         self.caption_entry.bind("<KeyRelease>", self._schedule_update)
 
@@ -236,10 +258,10 @@ class StoryComposer(ctk.CTkFrame):
         self.accordion_btn = ctk.CTkButton(
             scroll_container,
             text=" ▼ Advanced Styling & Decorative Borders",
-            font=ctk.CTkFont(size=10, weight="bold"),
+            font=ctk.CTkFont(size=11, weight="bold"),
             fg_color=Theme.HEADER_BG,
             hover_color="#382e25",
-            height=26,
+            height=28,
             command=self._toggle_accordion,
         )
         self.accordion_btn.pack(fill="x", padx=6, pady=(4, 2))
@@ -248,20 +270,29 @@ class StoryComposer(ctk.CTkFrame):
         # initially unmapped
 
         # Drawer contents: Box Style & Pull Quote
-        ctk.CTkLabel(self.drawer_frame, text="Box Style / Decorative Border:").pack(anchor="w", padx=8, pady=(6, 2))
+        ctk.CTkLabel(self.drawer_frame, text="Box Style / Decorative Border:", font=ctk.CTkFont(size=11)).pack(
+            anchor="w", padx=8, pady=(6, 2)
+        )
         self.box_style_var = ctk.StringVar(value=BoxStyle.STANDARD.value)
         self.box_style_menu = ctk.CTkOptionMenu(
             self.drawer_frame,
             variable=self.box_style_var,
             values=BoxStyle.choices(),
             width=200,
+            height=28,
+            font=ctk.CTkFont(size=11),
             command=self._on_field_changed,
         )
         self.box_style_menu.pack(anchor="w", padx=8, pady=(0, 6))
 
-        ctk.CTkLabel(self.drawer_frame, text="Pull Quote (Callout text):").pack(anchor="w", padx=8, pady=(2, 2))
+        ctk.CTkLabel(self.drawer_frame, text="Pull Quote (Callout text):", font=ctk.CTkFont(size=11)).pack(
+            anchor="w", padx=8, pady=(2, 2)
+        )
         self.pull_quote_entry = ctk.CTkEntry(
-            self.drawer_frame, placeholder_text="e.g. 'He could be anywhere, lurking in shadow.'"
+            self.drawer_frame,
+            placeholder_text="e.g. 'He could be anywhere, lurking in shadow.'",
+            font=ctk.CTkFont(size=12),
+            height=28,
         )
         self.pull_quote_entry.pack(fill="x", padx=8, pady=(0, 8))
         self.pull_quote_entry.bind("<KeyRelease>", self._schedule_update)

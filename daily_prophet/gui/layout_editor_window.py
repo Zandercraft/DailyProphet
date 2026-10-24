@@ -37,6 +37,7 @@ from ..template_package import (
 
 from ..layout_models import SlotType, LayoutStatus
 from .theme import Theme, IconManager
+from .tooltip import add_tooltip
 
 # Color palettes dynamically mapped from SlotType enumeration
 SLOT_COLORS = {s.value: s.ui_colors for s in SlotType}
@@ -62,8 +63,9 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         self.on_global_change = on_global_change
 
         self.title("The Daily Prophet — Interactive Layout Slot Editor")
-        self.geometry("1420x920")
-        self.minsize(1100, 700)
+        self.geometry("1240x860")
+        self.minsize(920, 600)
+        self.resizable(True, True)
 
         # Set Window Icon
         ico_path = os.path.join(self.base_dir, "assets", "logo.ico")
@@ -73,12 +75,11 @@ class LayoutEditorWindow(ctk.CTkToplevel):
             except Exception:
                 pass
 
-        # Force window to the foreground and focus immediately
-        if parent:
-            self.transient(parent)
+        # Lift and focus window without disabling native maximization
         self.lift()
         self.attributes("-topmost", True)
         self.after(80, lambda: self._finalize_focus())
+        self.bind("<F11>", lambda e: self._toggle_maximize())
 
         self.defs_path = None
         self.global_layouts = load_layout_definitions(base_dir=self.base_dir)
@@ -125,193 +126,230 @@ class LayoutEditorWindow(ctk.CTkToplevel):
 
     def _setup_ui(self):
         # 1. TOP TOOLBAR
-        top_bar = ctk.CTkFrame(self, fg_color=("#2e261f", "#1c1713"), corner_radius=0, height=56)
+        top_bar = ctk.CTkFrame(self, fg_color=Theme.HEADER_BG, corner_radius=0, height=50)
         top_bar.pack(fill="x", padx=0, pady=0)
 
         ctk.CTkLabel(
             top_bar,
-            text="🛠️ LAYOUT SLOT EDITOR",
-            font=ctk.CTkFont(family="Georgia", size=15, weight="bold"),
+            text=" Layout Editor",
+            image=IconManager.get_icon("pencil", size=15),
+            compound="left",
+            font=ctk.CTkFont(family="Georgia", size=14, weight="bold"),
             text_color="#f5ede0",
-        ).pack(side="left", padx=14, pady=8)
+        ).pack(side="left", padx=(10, 6), pady=6)
 
         # Layout selector
-        ctk.CTkLabel(top_bar, text="Layout:").pack(side="left", padx=(10, 4))
         layout_keys = [k for k in self.layouts_data.keys() if not k.startswith("additional_")]
         if not layout_keys:
             layout_keys = list(self.layouts_data.keys())
 
-        self.layout_menu = ctk.CTkOptionMenu(top_bar, values=layout_keys, width=160, command=self._on_layout_selected)
+        self.layout_menu = ctk.CTkOptionMenu(
+            top_bar,
+            values=layout_keys,
+            width=140,
+            height=28,
+            font=ctk.CTkFont(size=11),
+            fg_color=Theme.BTN_SECONDARY[0],
+            button_color=Theme.BTN_SECONDARY[1],
+            command=self._on_layout_selected,
+        )
         self.layout_menu.set(self.current_layout_key)
-        self.layout_menu.pack(side="left", padx=4)
+        self.layout_menu.pack(side="left", padx=3)
+        add_tooltip(self.layout_menu, "Select template layout to edit")
 
         # Scope badge (Project-Specific vs Global)
         self.scope_badge = ctk.CTkLabel(
             top_bar,
-            text="Global Template",
+            text="Global",
             fg_color="#3d342a",
             text_color="#c2b6a4",
             corner_radius=4,
             font=ctk.CTkFont(size=10, weight="bold"),
+            padx=6,
         )
-        self.scope_badge.pack(side="left", padx=6)
+        self.scope_badge.pack(side="left", padx=3)
 
-        # Template Management buttons (Add, Import, Export, Delete, Reset)
+        # Template Management icon buttons with tooltips
         mgmt_box = ctk.CTkFrame(top_bar, fg_color="transparent")
-        mgmt_box.pack(side="left", padx=8)
+        mgmt_box.pack(side="left", padx=4)
 
-        ctk.CTkButton(
+        new_t_btn = ctk.CTkButton(
             mgmt_box,
-            text=" New",
+            text="",
             image=IconManager.get_icon("plus", size=13),
-            compound="left",
-            width=70,
+            width=28,
+            height=26,
+            corner_radius=4,
             fg_color=Theme.BTN_NEUTRAL[0],
             hover_color=Theme.BTN_NEUTRAL[1],
-            font=ctk.CTkFont(size=11),
             command=self._show_add_template_dialog,
-        ).pack(side="left", padx=2)
-
-        ctk.CTkButton(
-            mgmt_box,
-            text=" Import",
-            image=IconManager.get_icon("file-down", size=13),
-            compound="left",
-            width=80,
-            fg_color=Theme.BTN_SUCCESS[0],
-            hover_color=Theme.BTN_SUCCESS[1],
-            font=ctk.CTkFont(size=11),
-            command=self._import_template_package,
-        ).pack(side="left", padx=2)
-
-        ctk.CTkButton(
-            mgmt_box,
-            text=" Export",
-            image=IconManager.get_icon("file-up", size=13),
-            compound="left",
-            width=80,
-            fg_color=Theme.BTN_SUCCESS[0],
-            hover_color=Theme.BTN_SUCCESS[1],
-            font=ctk.CTkFont(size=11),
-            command=self._export_template_package,
-        ).pack(side="left", padx=2)
-
-        self.delete_btn = ctk.CTkButton(
-            mgmt_box,
-            text=" Delete",
-            image=IconManager.get_icon("trash-2", size=13),
-            compound="left",
-            width=75,
-            fg_color=Theme.BTN_DANGER[0],
-            hover_color=Theme.BTN_DANGER[1],
-            font=ctk.CTkFont(size=11),
-            command=self._confirm_delete_template,
         )
+        new_t_btn.pack(side="left", padx=1)
+        add_tooltip(new_t_btn, "Create New Custom Template Layout")
+
+        imp_t_btn = ctk.CTkButton(
+            mgmt_box,
+            text="",
+            image=IconManager.get_icon("file-down", size=13),
+            width=28,
+            height=26,
+            corner_radius=4,
+            fg_color=Theme.BTN_SUCCESS[0],
+            hover_color=Theme.BTN_SUCCESS[1],
+            command=self._import_template_package,
+        )
+        imp_t_btn.pack(side="left", padx=1)
+        add_tooltip(imp_t_btn, "Import .prophettemplate Package")
+
+        exp_t_btn = ctk.CTkButton(
+            mgmt_box,
+            text="",
+            image=IconManager.get_icon("file-up", size=13),
+            width=28,
+            height=26,
+            corner_radius=4,
+            fg_color=Theme.BTN_SUCCESS[0],
+            hover_color=Theme.BTN_SUCCESS[1],
+            command=self._export_template_package,
+        )
+        exp_t_btn.pack(side="left", padx=1)
+        add_tooltip(exp_t_btn, "Export Self-Contained .prophettemplate Package")
 
         self.reset_btn = ctk.CTkButton(
             mgmt_box,
-            text=" Reset",
+            text="",
             image=IconManager.get_icon("rotate-ccw", size=13),
-            compound="left",
-            width=75,
+            width=28,
+            height=26,
+            corner_radius=4,
             fg_color=Theme.BTN_SECONDARY[0],
             hover_color=Theme.BTN_SECONDARY[1],
-            font=ctk.CTkFont(size=11),
             command=self._show_reset_dialog,
         )
-        self.reset_btn.pack(side="left", padx=2)
+        self.reset_btn.pack(side="left", padx=1)
+        add_tooltip(self.reset_btn, "Reset Factory Shipped Layout Defaults")
 
-        # Zoom controls
+        self.delete_btn = ctk.CTkButton(
+            mgmt_box,
+            text="",
+            image=IconManager.get_icon("trash-2", size=13),
+            width=28,
+            height=26,
+            corner_radius=4,
+            fg_color=Theme.BTN_DANGER[0],
+            hover_color=Theme.BTN_DANGER[1],
+            command=self._confirm_delete_template,
+        )
+        add_tooltip(self.delete_btn, "Delete Custom Template")
+
+        # Zoom controls (Compact)
         zoom_frame = ctk.CTkFrame(top_bar, fg_color="transparent")
-        zoom_frame.pack(side="left", padx=12)
+        zoom_frame.pack(side="left", padx=6)
 
-        ctk.CTkButton(
+        z_out_btn = ctk.CTkButton(
             zoom_frame,
             text="-",
-            width=34,
+            width=26,
+            height=26,
+            corner_radius=4,
             fg_color=Theme.BTN_CONTROL[0],
             hover_color=Theme.BTN_CONTROL[1],
             command=self._zoom_out,
-        ).pack(side="left", padx=2)
-        self.zoom_lbl = ctk.CTkLabel(zoom_frame, text="75%", width=44)
-        self.zoom_lbl.pack(side="left", padx=2)
-        ctk.CTkButton(
+        )
+        z_out_btn.pack(side="left", padx=1)
+        add_tooltip(z_out_btn, "Zoom Out (or MouseWheel)")
+
+        self.zoom_lbl = ctk.CTkLabel(zoom_frame, text="75%", width=38, font=ctk.CTkFont(size=11))
+        self.zoom_lbl.pack(side="left", padx=1)
+
+        z_in_btn = ctk.CTkButton(
             zoom_frame,
             text="+",
-            width=34,
+            width=28,
+            height=28,
+            corner_radius=4,
             fg_color=Theme.BTN_CONTROL[0],
             hover_color=Theme.BTN_CONTROL[1],
             command=self._zoom_in,
-        ).pack(side="left", padx=2)
-        ctk.CTkButton(
+        )
+        z_in_btn.pack(side="left", padx=1)
+        add_tooltip(z_in_btn, "Zoom In (or MouseWheel)")
+
+        z_fit_btn = ctk.CTkButton(
             zoom_frame,
-            text="100%",
-            width=46,
-            fg_color=Theme.BTN_CONTROL[0],
-            hover_color=Theme.BTN_CONTROL[1],
-            command=self._zoom_reset,
-        ).pack(side="left", padx=2)
-        ctk.CTkButton(
-            zoom_frame,
-            text="Fit Width",
-            width=68,
+            text="Fit",
+            width=38,
+            height=28,
+            corner_radius=4,
+            font=ctk.CTkFont(size=11),
             fg_color=Theme.BTN_CONTROL[0],
             hover_color=Theme.BTN_CONTROL[1],
             command=self._zoom_fit_width,
-        ).pack(side="left", padx=2)
+        )
+        z_fit_btn.pack(side="left", padx=1)
+        add_tooltip(z_fit_btn, "Fit Page to Window Width")
 
-        # Actions on right: Save to Project (Primary) & Save to Global
+        # Actions on right: Draw Slot, Save to Project, Save Global
         action_box = ctk.CTkFrame(top_bar, fg_color="transparent")
-        action_box.pack(side="right", padx=12)
+        action_box.pack(side="right", padx=8)
 
-        ctk.CTkButton(
+        draw_btn = ctk.CTkButton(
             action_box,
-            text=" New Slot (Drag)",
+            text=" Draw Slot",
             image=IconManager.get_icon("plus", size=13),
             compound="left",
-            width=135,
+            width=92,
+            height=28,
+            corner_radius=4,
+            font=ctk.CTkFont(size=11, weight="bold"),
             fg_color=Theme.BTN_SUCCESS[0],
             hover_color=Theme.BTN_SUCCESS[1],
             command=self._activate_draw_mode,
-        ).pack(side="left", padx=3)
+        )
+        draw_btn.pack(side="left", padx=2)
+        add_tooltip(draw_btn, "Activate Draw Mode (Click and drag on canvas to place a slot)")
 
-        # Checkbox to also update global template (defaults to OFF on open)
         self.save_global_check = ctk.CTkCheckBox(
             action_box,
-            text="Also update global template",
+            text="Also global",
             variable=self.save_to_global_var,
             font=ctk.CTkFont(size=11),
             text_color="#c2b6a4",
             checkbox_width=18,
             checkbox_height=18,
         )
-        self.save_global_check.pack(side="left", padx=6)
+        self.save_global_check.pack(side="left", padx=4)
+        add_tooltip(self.save_global_check, "Also update global installed template on disk")
 
-        # Primary default action: Save to this project
-        ctk.CTkButton(
+        save_slots_btn = ctk.CTkButton(
             action_box,
-            text=" Save Slots",
-            image=IconManager.get_icon("save", size=14),
+            text=" Save",
+            image=IconManager.get_icon("save", size=13),
             compound="left",
-            width=120,
-            font=ctk.CTkFont(weight="bold"),
+            width=72,
+            height=28,
+            corner_radius=4,
+            font=ctk.CTkFont(size=11, weight="bold"),
             fg_color=Theme.BTN_PRIMARY[0],
             hover_color=Theme.BTN_PRIMARY[1],
             command=self._save_to_current_project,
-        ).pack(side="left", padx=4)
+        )
+        save_slots_btn.pack(side="left", padx=2)
+        add_tooltip(save_slots_btn, "Save slot configuration to current newspaper issue")
 
-        # Global template save action
-        ctk.CTkButton(
+        save_glob_btn = ctk.CTkButton(
             action_box,
-            text=" Save Global Template",
-            image=IconManager.get_icon("globe", size=14),
-            compound="left",
-            width=165,
-            font=ctk.CTkFont(size=11),
+            text="",
+            image=IconManager.get_icon("globe", size=13),
+            width=30,
+            height=28,
+            corner_radius=4,
             fg_color=Theme.BTN_NEUTRAL[0],
             hover_color=Theme.BTN_NEUTRAL[1],
             command=self._save_to_global_template,
-        ).pack(side="left", padx=3)
+        )
+        save_glob_btn.pack(side="left", padx=2)
+        add_tooltip(save_glob_btn, "Save directly to global templates for all issues")
 
         # 2. MAIN SPLIT (Canvas on left, Inspector on right)
         main_split = ctk.CTkFrame(self, fg_color="transparent")
@@ -363,8 +401,9 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         self.bind("<Right>", lambda e: self._nudge_selected(1 if not e.state & 1 else 10, 0))
 
         # RIGHT: Inspector & Slots List
-        self.inspector_panel = ctk.CTkFrame(main_split, width=380)
+        self.inspector_panel = ctk.CTkFrame(main_split, width=310)
         self.inspector_panel.pack(side="right", fill="both", expand=False, padx=(6, 0), pady=0)
+        self.inspector_panel.pack_propagate(False)
         self.inspector_panel.pack_propagate(False)
 
         self._setup_inspector()

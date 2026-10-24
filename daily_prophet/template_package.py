@@ -180,13 +180,21 @@ def invalidate_template_cache() -> None:
 
 
 def load_all_installed_templates(
+    base_dir: str = ".",
     installed_dir: Optional[str] = None,
     shipped_dir: Optional[str] = None,
-    base_dir: str = ".",
     force_reload: bool = False,
 ) -> Dict[str, Dict[str, object]]:
     """Loads all .prophettemplate files from the installed directory, bootstrapping from shipped source if empty."""
-    inst_dir = os.path.abspath(installed_dir or os.path.join(base_dir, INSTALLED_TEMPLATES_DIR))
+    # Safety guard: if caller passes repo root or base_dir as installed_dir, ensure templates stay under assets
+    if installed_dir is not None:
+        inst_dir = os.path.abspath(installed_dir)
+        if os.path.isdir(os.path.join(inst_dir, "daily_prophet")) or os.path.isdir(os.path.join(inst_dir, "assets")):
+            base_dir = inst_dir
+            inst_dir = os.path.abspath(os.path.join(base_dir, INSTALLED_TEMPLATES_DIR))
+    else:
+        inst_dir = os.path.abspath(os.path.join(base_dir, INSTALLED_TEMPLATES_DIR))
+
     ship_dir = os.path.abspath(shipped_dir or os.path.join(base_dir, SHIPPED_TEMPLATES_DIR))
     base_abs = os.path.abspath(base_dir)
 
