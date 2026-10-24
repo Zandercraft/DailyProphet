@@ -566,7 +566,13 @@ class NativeBroadsheetRenderer:
                 t_bbox = draw.textbbox((0, 0), txt, font=t_font)
                 tw = t_bbox[2] - t_bbox[0]
                 th = t_bbox[3] - t_bbox[1]
-                tx = rx + max(0, (rw - tw) // 2)
+                t_align = _resolve_slot_align(slot.get("align", slot.get("justification")), "center")
+                if t_align == "left":
+                    tx = rx
+                elif t_align == "right":
+                    tx = rx + max(0, rw - tw)
+                else:
+                    tx = rx + max(0, (rw - tw) // 2)
                 ty = ry + max(0, (rh - th) // 2)
                 draw.text((tx, ty), txt, font=t_font, fill=t_color)
 
@@ -621,7 +627,14 @@ class NativeBroadsheetRenderer:
                 s_text = f"✦ {edition.tagline} ✦"
                 sb = draw.textbbox((0, 0), s_text, font=s_font)
                 sw = sb[2] - sb[0]
-                draw.text((rx + (rw - sw) // 2, ry + S(3)), s_text, font=s_font, fill=s_color)
+                s_align = _resolve_slot_align(slot.get("align", slot.get("justification")), "center")
+                if s_align == "left":
+                    sx = rx
+                elif s_align == "right":
+                    sx = rx + max(0, rw - sw)
+                else:
+                    sx = rx + (rw - sw) // 2
+                draw.text((sx, ry + S(3)), s_text, font=s_font, fill=s_color)
 
             elif stype in ["ticker", "banner"]:
                 draw.line([rx, ry, rx + rw, ry], fill=border_ink, width=S(1))
@@ -633,7 +646,14 @@ class NativeBroadsheetRenderer:
                 tk_text = edition.topic_bar if stype == "ticker" else f"❖ {edition.tagline.upper()} ❖"
                 tk_bbox = draw.textbbox((0, 0), tk_text, font=tk_font)
                 tkw = tk_bbox[2] - tk_bbox[0]
-                draw.text((rx + max(0, (rw - tkw) // 2), ry + S(4)), tk_text, font=tk_font, fill=tk_color)
+                tk_align = _resolve_slot_align(slot.get("align", slot.get("justification")), "center")
+                if tk_align == "left":
+                    tkx = rx + S(4)
+                elif tk_align == "right":
+                    tkx = rx + max(0, rw - tkw - S(4))
+                else:
+                    tkx = rx + max(0, (rw - tkw) // 2)
+                draw.text((tkx, ry + S(4)), tk_text, font=tk_font, fill=tk_color)
 
             elif stype in ["headline", "subheadline"]:
                 text_str = (
@@ -649,10 +669,21 @@ class NativeBroadsheetRenderer:
                 )
                 h_font = self.fonts.get_font(font_type, font_size)
                 h_color = _parse_slot_color(slot.get("text_color"), ink_black)
+                h_align = _resolve_slot_align(slot.get("align", slot.get("justification")), "left")
                 lines = _wrap_text_to_width(draw, text_str, h_font, rw)
                 cy = ry
                 for line in lines[:3]:
-                    draw.text((rx, cy), line, font=h_font, fill=h_color)
+                    if h_align == "center":
+                        lb = draw.textbbox((0, 0), line, font=h_font)
+                        lw = lb[2] - lb[0]
+                        lx = rx + max(0, (rw - lw) // 2)
+                    elif h_align == "right":
+                        lb = draw.textbbox((0, 0), line, font=h_font)
+                        lw = lb[2] - lb[0]
+                        lx = rx + max(0, rw - lw)
+                    else:
+                        lx = rx
+                    draw.text((lx, cy), line, font=h_font, fill=h_color)
                     cy += font_size + S(4)
 
             elif stype == "photo":
@@ -687,6 +718,7 @@ class NativeBroadsheetRenderer:
                 d_font = self.fonts.get_font("headline", max(S(18), int(b_size * 2.8)))
                 b_color = _parse_slot_color(slot.get("text_color"), ink_black)
                 line_height = int(b_size * 1.35)
+                b_align = _resolve_slot_align(slot.get("align", slot.get("justification")), "justify")
                 _draw_story_paragraphs(
                     draw=draw,
                     paragraphs=paras,
@@ -700,6 +732,7 @@ class NativeBroadsheetRenderer:
                     line_h=line_height,
                     fill=b_color,
                     has_drop_cap=True,
+                    align=b_align,
                 )
 
             elif stype == "quote":
@@ -708,11 +741,22 @@ class NativeBroadsheetRenderer:
                 q_size = _resolve_slot_font_size(slot.get("font_size"), S(10), scale)
                 q_font = self.fonts.get_font(q_font_type, q_size)
                 q_color = _parse_slot_color(slot.get("text_color"), ink_dark)
+                q_align = _resolve_slot_align(slot.get("align", slot.get("justification")), "left")
                 draw.rectangle([rx, ry, rx + rw, ry + rh], fill=(238, 226, 202, 160), outline=border_ink, width=S(1))
                 qlines = _wrap_text_to_width(draw, q_text, q_font, rw - S(16))
                 qy = ry + max(0, (rh - len(qlines) * (q_size + S(4))) // 2)
                 for ql in qlines[:4]:
-                    draw.text((rx + S(8), qy), ql, font=q_font, fill=q_color)
+                    if q_align == "center":
+                        qb = draw.textbbox((0, 0), ql, font=q_font)
+                        qw = qb[2] - qb[0]
+                        qx = rx + max(S(8), (rw - qw) // 2)
+                    elif q_align == "right":
+                        qb = draw.textbbox((0, 0), ql, font=q_font)
+                        qw = qb[2] - qb[0]
+                        qx = rx + max(S(8), rw - qw - S(8))
+                    else:
+                        qx = rx + S(8)
+                    draw.text((qx, qy), ql, font=q_font, fill=q_color)
                     qy += q_size + S(4)
                 qy = ry + S(8)
                 for ql in qlines:

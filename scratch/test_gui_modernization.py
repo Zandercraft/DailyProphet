@@ -2,6 +2,7 @@ import sys
 
 sys.path.insert(0, ".")
 from daily_prophet.gui.main_window import MainWindow
+from daily_prophet.gui.layout_editor_window import LayoutEditorWindow
 
 app = MainWindow()
 app.update()
@@ -58,6 +59,17 @@ pc._on_canvas_resize(ev)
 pc._handle_delayed_resize()
 assert pc.is_fit_mode is True
 print("Preview canvas zoom, pan, and responsive resize ok.")
+
+# 7. Test slot alignment / justification
+le = LayoutEditorWindow(app)
+le._select_slot_by_index(0)
+slot = le.layouts_data[le.current_layout_key]["slots"][0]
+le._on_slot_align_selected("Center")
+assert slot.get("align") == "center"
+le._on_slot_align_selected("Justify (Full)")
+assert slot.get("align") == "justify"
+le.destroy()
+print("Slot alignment / justification inspector ok.")
 
 app.destroy()
 print("All functional GUI smoke tests PASSED!")

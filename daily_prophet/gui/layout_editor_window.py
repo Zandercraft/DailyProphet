@@ -83,6 +83,14 @@ SLOT_FONT_SIZES = [
     "48 pt",
 ]
 
+SLOT_ALIGNMENTS = [
+    "Default (Auto)",
+    "Justify (Full)",
+    "Left",
+    "Center",
+    "Right",
+]
+
 
 class LayoutEditorWindow(ctk.CTkToplevel):
     def __init__(
@@ -552,6 +560,14 @@ class LayoutEditorWindow(ctk.CTkToplevel):
             c_sz, values=SLOT_FONT_SIZES, height=26, command=self._on_slot_size_selected
         )
         self.slot_size_menu.pack(fill="x")
+
+        align_row = ctk.CTkFrame(self.edit_frame, fg_color="transparent")
+        align_row.pack(fill="x", padx=10, pady=(0, 6))
+        ctk.CTkLabel(align_row, text="Text Alignment / Justification:", font=ctk.CTkFont(size=10)).pack(anchor="w")
+        self.slot_align_menu = ctk.CTkOptionMenu(
+            align_row, values=SLOT_ALIGNMENTS, height=26, command=self._on_slot_align_selected
+        )
+        self.slot_align_menu.pack(fill="x")
 
         # Delete Slot Button
         ctk.CTkButton(
@@ -1519,6 +1535,15 @@ class LayoutEditorWindow(ctk.CTkToplevel):
                     break
         self.slot_size_menu.set(matched_fs)
 
+        # Typography: Alignment / Justification
+        al = str(slot.get("align", slot.get("justification", ""))).strip().lower()
+        matched_al = "Default (Auto)"
+        for opt in SLOT_ALIGNMENTS:
+            if al and al in opt.lower():
+                matched_al = opt
+                break
+        self.slot_align_menu.set(matched_al)
+
     def _update_coords_display(self, rect):
         x, y, w, h = rect
         for entry, val in [(self.x_entry, x), (self.y_entry, y), (self.w_entry, w), (self.h_entry, h)]:
@@ -1533,6 +1558,7 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         self.slot_font_menu.set("Default (Auto)")
         self.slot_color_menu.set("Default (Auto)")
         self.slot_size_menu.set("Default (Auto)")
+        self.slot_align_menu.set("Default (Auto)")
 
     def _on_slot_prop_changed(self, event=None):
         if self.selected_slot_index is None:
@@ -1584,6 +1610,19 @@ class LayoutEditorWindow(ctk.CTkToplevel):
                 slots[self.selected_slot_index]["font_size"] = sz
             except ValueError:
                 pass
+        self._refresh_canvas()
+
+    def _on_slot_align_selected(self, choice: str) -> None:
+        if self.selected_slot_index is None:
+            return
+        slots = self.layouts_data[self.current_layout_key]["slots"]
+        if choice == "Default (Auto)":
+            slots[self.selected_slot_index].pop("align", None)
+            slots[self.selected_slot_index].pop("justification", None)
+        else:
+            val = choice.split()[0].lower()
+            slots[self.selected_slot_index]["align"] = val
+            slots[self.selected_slot_index]["justification"] = val
         self._refresh_canvas()
 
     def _on_coord_typed(self, event=None):
