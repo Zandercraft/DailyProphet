@@ -156,8 +156,12 @@ def _draw_story_paragraphs(
     fill: Tuple[int, int, int],
     has_drop_cap: bool = False,
     avoid_rect: Optional[Tuple[int, int, int, int]] = None,  # (ax, ay, aw, ah)
+    align: str = "justify",
 ) -> int:
-    """Draws justified paragraphs, wrapping around an avoid_rect with high-performance word caching."""
+    """Draws paragraphs with configurable justification ('justify', 'left', 'center', 'right'),
+
+    wrapping around an avoid_rect with high-performance word caching.
+    """
     cur_y = y
     first_para = True
     space_w = _get_word_width(font, " ")
@@ -210,7 +214,20 @@ def _draw_story_paragraphs(
             else:
                 if cur_y + line_h > y + max_h:
                     return cur_y
-                _draw_justified_line(draw, current_words, current_widths, font, int(avail_x), cur_y, int(avail_w), fill)
+                if align == "center":
+                    lw = sum(current_widths) + (len(current_words) - 1) * space_w
+                    cx = int(avail_x + max(0.0, (avail_w - lw) / 2))
+                    draw.text((cx, cur_y), " ".join(current_words), font=font, fill=fill)
+                elif align == "right":
+                    lw = sum(current_widths) + (len(current_words) - 1) * space_w
+                    rx_pos = int(avail_x + max(0.0, avail_w - lw))
+                    draw.text((rx_pos, cur_y), " ".join(current_words), font=font, fill=fill)
+                elif align == "left":
+                    draw.text((int(avail_x), cur_y), " ".join(current_words), font=font, fill=fill)
+                else:  # "justify"
+                    _draw_justified_line(
+                        draw, current_words, current_widths, font, int(avail_x), cur_y, int(avail_w), fill
+                    )
                 cur_y += line_h
                 current_words = [word]
                 current_widths = [w_w]
@@ -234,12 +251,95 @@ def _draw_story_paragraphs(
                     else:
                         avail_w = max(40.0, ax - avail_x - 10)
 
-            draw.text((int(avail_x), cur_y), " ".join(current_words), font=font, fill=fill)
+            if align == "center":
+                lw = sum(current_widths) + (len(current_words) - 1) * space_w
+                cx = int(avail_x + max(0.0, (avail_w - lw) / 2))
+                draw.text((cx, cur_y), " ".join(current_words), font=font, fill=fill)
+            elif align == "right":
+                lw = sum(current_widths) + (len(current_words) - 1) * space_w
+                rx_pos = int(avail_x + max(0.0, avail_w - lw))
+                draw.text((rx_pos, cur_y), " ".join(current_words), font=font, fill=fill)
+            else:
+                draw.text((int(avail_x), cur_y), " ".join(current_words), font=font, fill=fill)
             cur_y += line_h + 4
 
         first_para = False
 
     return cur_y
+
+
+def _parse_slot_color(color_val: object, default_rgb: Tuple[int, int, int]) -> Tuple[int, int, int]:
+    """Parses a hex color string (e.g. #6e1818 or #120e0a) into an RGB integer tuple."""
+    if not color_val or not isinstance(color_val, str):
+        return default_rgb
+    c = color_val.strip().split()[0]  # strip any label like '#6e1818 (Crimson)'
+    if c.startswith("#") and len(c) in (7, 4):
+        try:
+            if len(c) == 7:
+                return (int(c[1:3], 16), int(c[3:5], 16), int(c[5:7], 16))
+            elif len(c) == 4:
+                return (int(c[1] * 2, 16), int(c[2] * 2, 16), int(c[3] * 2, 16))
+        except ValueError:
+            pass
+    return default_rgb
+
+
+FONT_FAMILY_MAP = {
+    "cinzel": "headline",
+    "cinzel (headline)": "headline",
+    "cinzel (classic headline)": "headline",
+    "unifraktur": "title",
+    "unifraktur (gothic)": "title",
+    "unifraktur (gothic masthead)": "title",
+    "playfair": "subhead",
+    "playfair (subhead)": "subhead",
+    "playfair display": "subhead",
+    "playfair display (subhead)": "subhead",
+    "playfair italic": "subhead_italic",
+    "playfair display italic": "subhead_italic",
+    "im fell english": "body",
+    "im fell english (body)": "body",
+    "im fell english (vintage body)": "body",
+    "im fell english italic": "body_italic",
+    "script": "script",
+}
+
+
+def _resolve_slot_font(slot_family: object, fallback_type: str) -> str:
+    """Maps slot font family name to font manager key."""
+    if not slot_family or not isinstance(slot_family, str) or "default" in slot_family.lower():
+        return fallback_type
+    key = slot_family.strip().lower()
+    return FONT_FAMILY_MAP.get(key, fallback_type)
+
+
+def _resolve_slot_font_size(slot_size: object, fallback_size: int, scale: float) -> int:
+    """Parses slot font size in pt or px, applying renderer scale."""
+    if slot_size is not None:
+        try:
+            val_str = str(slot_size).lower().replace("pt", "").replace("px", "").strip()
+            val = float(val_str)
+            if val > 0:
+                return max(int(6 * scale), int(val * scale))
+        except (ValueError, TypeError):
+            pass
+    return fallback_size
+
+
+def _resolve_slot_align(slot_align: object, fallback_align: str = "left") -> str:
+    """Resolves slot text alignment / justification: 'justify', 'left', 'center', or 'right'."""
+    if not slot_align or not isinstance(slot_align, str) or "default" in slot_align.lower():
+        return fallback_align
+    val = slot_align.strip().lower()
+    if "justif" in val:
+        return "justify"
+    if "center" in val:
+        return "center"
+    if "right" in val:
+        return "right"
+    if "left" in val:
+        return "left"
+    return fallback_align
 
 
 def map_slots_to_stories(
@@ -458,15 +558,17 @@ class NativeBroadsheetRenderer:
             target_story = story_by_id.get(slot_to_story.get(sid, ""), default_story)
 
             if stype == "title":
-                t_font_sz = min(S(48), max(S(18), int(rh * 0.7)))
-                t_font = self.fonts.get_font("title", t_font_sz)
+                t_font_type = _resolve_slot_font(slot.get("font_family"), "title")
+                t_font_sz = _resolve_slot_font_size(slot.get("font_size"), min(S(48), max(S(18), int(rh * 0.7))), scale)
+                t_font = self.fonts.get_font(t_font_type, t_font_sz)
+                t_color = _parse_slot_color(slot.get("text_color"), ink_black)
                 txt = "DAILY PROPHET"
                 t_bbox = draw.textbbox((0, 0), txt, font=t_font)
                 tw = t_bbox[2] - t_bbox[0]
                 th = t_bbox[3] - t_bbox[1]
                 tx = rx + max(0, (rw - tw) // 2)
                 ty = ry + max(0, (rh - th) // 2)
-                draw.text((tx, ty), txt, font=t_font, fill=ink_black)
+                draw.text((tx, ty), txt, font=t_font, fill=t_color)
 
             elif stype == "ear_box":
                 draw.rectangle([rx, ry, rx + rw, ry + rh], outline=border_ink, width=S(1))
@@ -512,20 +614,26 @@ class NativeBroadsheetRenderer:
                     )
 
             elif stype == "slogan":
-                s_font = self.fonts.get_font("headline", min(S(10), max(S(7), int(rh * 0.45))))
+                s_font_type = _resolve_slot_font(slot.get("font_family"), "headline")
+                s_font_sz = _resolve_slot_font_size(slot.get("font_size"), min(S(10), max(S(7), int(rh * 0.45))), scale)
+                s_font = self.fonts.get_font(s_font_type, s_font_sz)
+                s_color = _parse_slot_color(slot.get("text_color"), ink_dark)
                 s_text = f"✦ {edition.tagline} ✦"
                 sb = draw.textbbox((0, 0), s_text, font=s_font)
                 sw = sb[2] - sb[0]
-                draw.text((rx + (rw - sw) // 2, ry + S(3)), s_text, font=s_font, fill=ink_dark)
+                draw.text((rx + (rw - sw) // 2, ry + S(3)), s_text, font=s_font, fill=s_color)
 
             elif stype in ["ticker", "banner"]:
                 draw.line([rx, ry, rx + rw, ry], fill=border_ink, width=S(1))
                 draw.line([rx, ry + rh, rx + rw, ry + rh], fill=border_ink, width=S(1))
-                tk_font = self.fonts.get_font("headline", min(S(9), max(S(7), int(rh * 0.4))))
+                tk_font_type = _resolve_slot_font(slot.get("font_family"), "headline")
+                tk_font_sz = _resolve_slot_font_size(slot.get("font_size"), min(S(9), max(S(7), int(rh * 0.4))), scale)
+                tk_font = self.fonts.get_font(tk_font_type, tk_font_sz)
+                tk_color = _parse_slot_color(slot.get("text_color"), ink_black)
                 tk_text = edition.topic_bar if stype == "ticker" else f"❖ {edition.tagline.upper()} ❖"
                 tk_bbox = draw.textbbox((0, 0), tk_text, font=tk_font)
                 tkw = tk_bbox[2] - tk_bbox[0]
-                draw.text((rx + max(0, (rw - tkw) // 2), ry + S(4)), tk_text, font=tk_font, fill=ink_black)
+                draw.text((rx + max(0, (rw - tkw) // 2), ry + S(4)), tk_text, font=tk_font, fill=tk_color)
 
             elif stype in ["headline", "subheadline"]:
                 text_str = (
@@ -533,13 +641,18 @@ class NativeBroadsheetRenderer:
                     if stype == "headline"
                     else (target_story.subheadline or target_story.headline)
                 )
-                font_type = "headline" if stype == "headline" else "subhead_italic"
-                font_size = min(S(20), max(S(10), int(rh * 0.42)))
+                font_type = _resolve_slot_font(
+                    slot.get("font_family"), "headline" if stype == "headline" else "subhead_italic"
+                )
+                font_size = _resolve_slot_font_size(
+                    slot.get("font_size"), min(S(20), max(S(10), int(rh * 0.42))), scale
+                )
                 h_font = self.fonts.get_font(font_type, font_size)
+                h_color = _parse_slot_color(slot.get("text_color"), ink_black)
                 lines = _wrap_text_to_width(draw, text_str, h_font, rw)
                 cy = ry
                 for line in lines[:3]:
-                    draw.text((rx, cy), line, font=h_font, fill=ink_black)
+                    draw.text((rx, cy), line, font=h_font, fill=h_color)
                     cy += font_size + S(4)
 
             elif stype == "photo":
@@ -567,9 +680,13 @@ class NativeBroadsheetRenderer:
 
             elif stype in ["body", "column"]:
                 paras = [p.strip() for p in target_story.body.split("\n\n") if p.strip()]
-                b_font = self.fonts.get_font("body", S(9.5))
-                b_bold = self.fonts.get_font("headline", S(9.5))
-                d_font = self.fonts.get_font("headline", S(28))
+                b_font_type = _resolve_slot_font(slot.get("font_family"), "body")
+                b_size = _resolve_slot_font_size(slot.get("font_size"), S(9.5), scale)
+                b_font = self.fonts.get_font(b_font_type, b_size)
+                b_bold = self.fonts.get_font("headline", b_size)
+                d_font = self.fonts.get_font("headline", max(S(18), int(b_size * 2.8)))
+                b_color = _parse_slot_color(slot.get("text_color"), ink_black)
+                line_height = int(b_size * 1.35)
                 _draw_story_paragraphs(
                     draw=draw,
                     paragraphs=paras,
@@ -580,16 +697,23 @@ class NativeBroadsheetRenderer:
                     y=ry,
                     max_w=rw,
                     max_h=rh,
-                    line_h=S(13),
-                    fill=ink_black,
+                    line_h=line_height,
+                    fill=b_color,
                     has_drop_cap=True,
                 )
 
             elif stype == "quote":
                 q_text = f'"{edition.quote_text}"'
-                q_font = self.fonts.get_font("body_italic", S(10))
+                q_font_type = _resolve_slot_font(slot.get("font_family"), "body_italic")
+                q_size = _resolve_slot_font_size(slot.get("font_size"), S(10), scale)
+                q_font = self.fonts.get_font(q_font_type, q_size)
+                q_color = _parse_slot_color(slot.get("text_color"), ink_dark)
                 draw.rectangle([rx, ry, rx + rw, ry + rh], fill=(238, 226, 202, 160), outline=border_ink, width=S(1))
                 qlines = _wrap_text_to_width(draw, q_text, q_font, rw - S(16))
+                qy = ry + max(0, (rh - len(qlines) * (q_size + S(4))) // 2)
+                for ql in qlines[:4]:
+                    draw.text((rx + S(8), qy), ql, font=q_font, fill=q_color)
+                    qy += q_size + S(4)
                 qy = ry + S(8)
                 for ql in qlines:
                     draw.text((rx + S(8), qy), ql, font=q_font, fill=accent_red)

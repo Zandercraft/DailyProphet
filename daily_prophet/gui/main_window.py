@@ -246,9 +246,14 @@ class MainWindow(ctk.CTk):
         self.workspace = ctk.CTkFrame(parent, fg_color="transparent")
         self.workspace.pack(fill="both", expand=True, padx=2, pady=2)
 
+        self.workspace.columnconfigure(0, weight=0, minsize=275)
+        self.workspace.columnconfigure(1, weight=5, minsize=370)
+        self.workspace.columnconfigure(2, weight=4, minsize=380)
+        self.workspace.rowconfigure(0, weight=1)
+
         # 1. LEFT PANE: Stories Navigator
-        self.left_pane = ctk.CTkFrame(self.workspace, width=235, fg_color=Theme.PANEL_BG)
-        self.left_pane.pack(side="left", fill="both", expand=False, padx=(0, 4))
+        self.left_pane = ctk.CTkFrame(self.workspace, width=275, fg_color=Theme.PANEL_BG)
+        self.left_pane.grid(row=0, column=0, sticky="nsew", padx=(0, 4))
         self.left_pane.pack_propagate(False)
 
         nav_header = ctk.CTkFrame(self.left_pane, fg_color="transparent")
@@ -340,12 +345,11 @@ class MainWindow(ctk.CTk):
         self.center_composer = StoryComposer(
             self.workspace, on_story_updated=self._on_composer_story_updated, base_dir=self.base_dir
         )
-        self.center_composer.pack(side="left", fill="both", expand=True, padx=4)
+        self.center_composer.grid(row=0, column=1, sticky="nsew", padx=4)
 
-        # 3. RIGHT PANE: Live Broadsheet Preview Dock (500px width fills vertical canvas space proportionally)
-        self.right_dock = ctk.CTkFrame(self.workspace, width=500, fg_color="transparent")
-        self.right_dock.pack(side="right", fill="both", expand=False, padx=(4, 0))
-        self.right_dock.pack_propagate(False)
+        # 3. RIGHT PANE: Live Broadsheet Preview Dock (Responsive scaling)
+        self.right_dock = ctk.CTkFrame(self.workspace, fg_color="transparent")
+        self.right_dock.grid(row=0, column=2, sticky="nsew", padx=(4, 0))
 
         self.preview_canvas = BroadsheetPreviewCanvas(
             self.right_dock,
@@ -744,14 +748,30 @@ class MainWindow(ctk.CTk):
                 text_color=Theme.TEXT_MUTED,
             ).pack(side="left", padx=6)
 
+        raw_headline = story.headline.strip() if (story.headline and story.headline.strip()) else "[Untitled Headline]"
+        # Display heading wrapping up to 3 lines (truncating cleanly beyond ~3 lines)
+        cleaned_text = " ".join(raw_headline.split())
+        if len(cleaned_text) > 115:
+            display_headline = cleaned_text[:112].rsplit(" ", 1)[0] + "..."
+        else:
+            display_headline = cleaned_text
+
         headline_lbl = ctk.CTkLabel(
             content,
-            text=story.headline or "[Untitled Headline]",
+            text=display_headline,
             font=ctk.CTkFont(family="Georgia", size=12, weight="bold"),
             anchor="w",
             justify="left",
+            wraplength=235,
         )
         headline_lbl.pack(fill="x", pady=(3, 1))
+
+        # Dynamically adjust wraplength if story card expands or shrinks
+        def _adjust_wrap(e, lbl=headline_lbl):
+            if e.width > 60:
+                lbl.configure(wraplength=max(160, e.width - 12))
+
+        content.bind("<Configure>", _adjust_wrap)
 
         # Click handler
         def _on_click(e=None, sid=story.id):
@@ -759,7 +779,10 @@ class MainWindow(ctk.CTk):
 
         card.bind("<Button-1>", _on_click)
         content.bind("<Button-1>", _on_click)
+        top_row.bind("<Button-1>", _on_click)
         headline_lbl.bind("<Button-1>", _on_click)
+        for child in top_row.winfo_children():
+            child.bind("<Button-1>", _on_click)
         return card
 
     def _select_story(self, story_id: Optional[str] = None):
@@ -829,11 +852,13 @@ class MainWindow(ctk.CTk):
         if self.floating_preview_win:
             self.floating_preview_win.destroy()
             self.floating_preview_win = None
-            self.right_dock.pack(side="right", fill="both", expand=False, padx=(4, 0))
+            self.workspace.columnconfigure(2, weight=4, minsize=380)
+            self.right_dock.grid(row=0, column=2, sticky="nsew", padx=(4, 0))
             self.preview_canvas.refresh_preview()
             self.status_lbl.configure(text="Preview docked to main workspace.")
         else:
-            self.right_dock.pack_forget()
+            self.right_dock.grid_remove()
+            self.workspace.columnconfigure(2, weight=0, minsize=0)
             self.floating_preview_win = PreviewToplevelWindow(
                 self,
                 edition=self.edition,
@@ -940,7 +965,7 @@ class MainWindow(ctk.CTk):
 
     def _open_layout_editor(self):
         active_page = self.edition.get_page(self.current_page_idx)
-        LayoutEditorWindow(
+        win = LayoutEditorWindow(
             self,
             initial_layout=active_page.layout_id,
             edition=self.edition,
@@ -948,6 +973,8 @@ class MainWindow(ctk.CTk):
             on_global_change=self._refresh_layout_options,
             base_dir=self.base_dir,
         )
+        win.lift(self)
+        win.focus_force()
 
     def _on_layout_saved_to_project(self):
         self._update_preview()

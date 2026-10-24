@@ -6,7 +6,7 @@ smooth zooming, panning, and support for dual-monitor detachment.
 
 from __future__ import annotations
 import tkinter as tk
-from typing import Optional, Callable, Dict, List
+from typing import Optional, Callable, Dict, List, Tuple
 import customtkinter as ctk
 from PIL import Image, ImageTk
 
@@ -40,8 +40,11 @@ class BroadsheetPreviewCanvas(ctk.CTkFrame):
         self.is_detached = is_detached
 
         self.current_page_idx = 0
-        self.zoom_mode = "fit"  # "fit", "50%", "75%", "100%", "150%"
-        self.custom_scale = 0.5
+        self.is_fit_mode = True
+        self.zoom_level: float = 1.0
+        self._resize_timer_id: Optional[str] = None
+        self._last_canvas_size: Optional[Tuple[int, int]] = None
+
         self.selected_slot_id: Optional[str] = None
         self.selected_story_id: Optional[str] = None
         self.highlight_slot_ids: List[str] = []
@@ -53,6 +56,11 @@ class BroadsheetPreviewCanvas(ctk.CTkFrame):
         self._displayed_photo: Optional[ImageTk.PhotoImage] = None
         self._current_layout_slots: List[Dict[str, object]] = []
         self._current_canvas_scale = 1.0
+
+        self._img_x = 8
+        self._img_y = 8
+        self._disp_w = 0
+        self._disp_h = 0
 
         self._setup_ui()
 
@@ -94,23 +102,65 @@ class BroadsheetPreviewCanvas(ctk.CTkFrame):
                 else "Pop Out Live Broadsheet into Dual-Monitor Window",
             )
 
-        # Zoom buttons
+        # Zoom controls (matching slot editor zoom strip)
         zoom_frame = ctk.CTkFrame(toolbar, fg_color="transparent")
         zoom_frame.pack(side="right", padx=6)
 
+        z_out_btn = ctk.CTkButton(
+            zoom_frame,
+            text="-",
+            width=26,
+            height=28,
+            corner_radius=4,
+            font=ctk.CTkFont(size=13, weight="bold"),
+            fg_color=Theme.BTN_CONTROL[0],
+            hover_color=Theme.BTN_CONTROL[1],
+            command=self._zoom_out,
+        )
+        z_out_btn.pack(side="left", padx=1)
+        add_tooltip(z_out_btn, "Zoom Out (or Ctrl+Scroll Down)")
+
         self.zoom_menu = ctk.CTkOptionMenu(
             zoom_frame,
-            values=["Fit to Screen", "50%", "75%", "100%", "150%"],
-            width=115,
-            height=30,
-            font=ctk.CTkFont(size=12),
+            values=["Fit Page", "50%", "75%", "100%", "125%", "150%", "200%"],
+            width=90,
+            height=28,
+            font=ctk.CTkFont(size=11),
             fg_color=Theme.BTN_SECONDARY[0],
             button_color=Theme.BTN_SECONDARY[1],
-            command=self._on_zoom_changed,
+            command=self._on_zoom_option_selected,
         )
-        self.zoom_menu.pack(side="right", padx=2)
-        self.zoom_menu.set("Fit to Screen")
-        add_tooltip(self.zoom_menu, "Preview Zoom Scale")
+        self.zoom_menu.pack(side="left", padx=1)
+        self.zoom_menu.set("Fit Page")
+        add_tooltip(self.zoom_menu, "Zoom Preset / Current Scale")
+
+        z_in_btn = ctk.CTkButton(
+            zoom_frame,
+            text="+",
+            width=26,
+            height=28,
+            corner_radius=4,
+            font=ctk.CTkFont(size=13, weight="bold"),
+            fg_color=Theme.BTN_CONTROL[0],
+            hover_color=Theme.BTN_CONTROL[1],
+            command=self._zoom_in,
+        )
+        z_in_btn.pack(side="left", padx=1)
+        add_tooltip(z_in_btn, "Zoom In (or Ctrl+Scroll Up)")
+
+        fit_btn = ctk.CTkButton(
+            zoom_frame,
+            text="Fit",
+            width=36,
+            height=28,
+            corner_radius=4,
+            font=ctk.CTkFont(size=11, weight="bold"),
+            fg_color=Theme.BTN_CONTROL[0],
+            hover_color=Theme.BTN_CONTROL[1],
+            command=self._zoom_fit,
+        )
+        fit_btn.pack(side="left", padx=1)
+        add_tooltip(fit_btn, "Fit Page to Viewport")
 
         # 2. Main Scrollable Canvas Area
         canvas_container = ctk.CTkFrame(self, fg_color=Theme.CANVAS_BG)
@@ -127,6 +177,19 @@ class BroadsheetPreviewCanvas(ctk.CTkFrame):
 
         self.canvas.bind("<Button-1>", self._on_canvas_click)
         self.canvas.bind("<Configure>", self._on_canvas_resize)
+
+        # Pan bindings (Right-click and Middle-click drag)
+        self.canvas.bind("<ButtonPress-3>", self._start_pan)
+        self.canvas.bind("<B3-Motion>", self._do_pan)
+        self.canvas.bind("<ButtonRelease-3>", self._end_pan)
+        self.canvas.bind("<ButtonPress-2>", self._start_pan)
+        self.canvas.bind("<B2-Motion>", self._do_pan)
+        self.canvas.bind("<ButtonRelease-2>", self._end_pan)
+
+        # Scroll & Zoom bindings
+        self.canvas.bind("<MouseWheel>", self._on_mousewheel)
+        self.canvas.bind("<Button-4>", lambda e: self._on_wheel_button(e, -1))
+        self.canvas.bind("<Button-5>", lambda e: self._on_wheel_button(e, 1))
 
         # 3. Bottom Page Flip Bar
         flip_bar = ctk.CTkFrame(self, fg_color=Theme.HEADER_BG, height=38, corner_radius=4)
@@ -260,41 +323,155 @@ class BroadsheetPreviewCanvas(ctk.CTkFrame):
             if self.on_page_changed:
                 self.on_page_changed(self.current_page_idx)
 
-    def _on_zoom_changed(self, choice: str):
-        self.zoom_mode = choice
+    # -----------------------------------------------------------------------
+    # Pan & Scroll Navigation
+    # -----------------------------------------------------------------------
+    def _start_pan(self, event):
+        self.canvas.scan_mark(event.x, event.y)
+        self.canvas.configure(cursor="fleur")
+
+    def _do_pan(self, event):
+        self.canvas.scan_dragto(event.x, event.y, gain=1)
+
+    def _end_pan(self, event=None):
+        self.canvas.configure(cursor="hand2")
+
+    def _on_mousewheel(self, event):
+        if event.state & 4:  # Ctrl held down -> zoom
+            if event.delta > 0:
+                self._zoom_in()
+            else:
+                self._zoom_out()
+        elif event.state & 1:  # Shift held down -> horizontal scroll
+            self.canvas.xview_scroll(int(-1 * (event.delta / 120)), "units")
+        else:  # Vertical scroll
+            self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+    def _on_wheel_button(self, event, direction: int):
+        if event.state & 4:  # Ctrl held down -> zoom
+            if direction < 0:
+                self._zoom_in()
+            else:
+                self._zoom_out()
+        else:
+            self.canvas.yview_scroll(direction, "units")
+
+    # -----------------------------------------------------------------------
+    # Zoom Controls
+    # -----------------------------------------------------------------------
+    def _zoom_in(self):
+        self.is_fit_mode = False
+        self.zoom_level = min(3.0, round(self.zoom_level + 0.1, 2))
+        self._update_zoom_label()
         self._redraw_canvas()
 
+    def _zoom_out(self):
+        self.is_fit_mode = False
+        self.zoom_level = max(0.15, round(self.zoom_level - 0.1, 2))
+        self._update_zoom_label()
+        self._redraw_canvas()
+
+    def _zoom_fit(self):
+        self.is_fit_mode = True
+        self._redraw_canvas()
+
+    def _on_zoom_option_selected(self, choice: str):
+        if choice in ("Fit Page", "Fit to Screen"):
+            self._zoom_fit()
+        else:
+            try:
+                pct = int(choice.replace("%", "").strip())
+                self.is_fit_mode = False
+                self.zoom_level = round(pct / 100.0, 2)
+                self._update_zoom_label()
+                self._redraw_canvas()
+            except ValueError:
+                pass
+
+    def _on_zoom_changed(self, choice: str):
+        """Backward-compatibility alias for _on_zoom_option_selected."""
+        self._on_zoom_option_selected(choice)
+
+    def _update_zoom_label(self):
+        pct = int(round(self.zoom_level * 100))
+        label_text = f"Fit ({pct}%)" if self.is_fit_mode else f"{pct}%"
+        self.zoom_menu.set(label_text if not self.is_fit_mode else "Fit Page")
+
+    # -----------------------------------------------------------------------
+    # Responsive Resizing & Canvas Redraw
+    # -----------------------------------------------------------------------
     def _on_canvas_resize(self, event):
-        if self.zoom_mode == "Fit to Screen":
+        new_w = event.width
+        new_h = event.height
+        if new_w <= 10 or new_h <= 10:
+            return
+        if getattr(self, "_last_canvas_size", None) == (new_w, new_h):
+            return
+        self._last_canvas_size = (new_w, new_h)
+
+        if self._resize_timer_id is not None:
+            self.after_cancel(self._resize_timer_id)
+        # 35ms debounce guarantees butter-smooth responsive resizing without frame stutter
+        self._resize_timer_id = self.after(35, self._handle_delayed_resize)
+
+    def _handle_delayed_resize(self):
+        self._resize_timer_id = None
+        if self.is_fit_mode:
             self._redraw_canvas()
+        else:
+            self._update_canvas_viewport()
+
+    def _update_canvas_viewport(self):
+        if not self._displayed_photo:
+            return
+        c_w = max(50, self.canvas.winfo_width())
+        c_h = max(50, self.canvas.winfo_height())
+        disp_w = getattr(self, "_disp_w", self._displayed_photo.width())
+        disp_h = getattr(self, "_disp_h", self._displayed_photo.height())
+
+        offset_x = max(8, (c_w - disp_w) // 2)
+        offset_y = max(8, (c_h - disp_h) // 2)
+        self._img_x = offset_x
+        self._img_y = offset_y
+
+        self.canvas.coords("sheet_img", offset_x, offset_y)
+        scroll_w = max(c_w, offset_x + disp_w + 12)
+        scroll_h = max(c_h, offset_y + disp_h + 12)
+        self.canvas.config(scrollregion=(0, 0, scroll_w, scroll_h))
+        self._draw_highlights()
 
     def _redraw_canvas(self):
         if self._rendered_pil is None:
             self.canvas.delete("all")
             return
 
-        c_w = max(50, self.canvas.winfo_width())
-        c_h = max(50, self.canvas.winfo_height())
-        orig_w, orig_h = self._rendered_pil.size
+        c_w = self.canvas.winfo_width()
+        c_h = self.canvas.winfo_height()
+        if c_w <= 10 or c_h <= 10:
+            if getattr(self, "_last_canvas_size", None):
+                c_w, c_h = self._last_canvas_size
+            else:
+                c_w = 500
+                c_h = 700
 
-        if self.zoom_mode == "Fit to Screen":
-            pad = 12
+        c_w = max(50, c_w)
+        c_h = max(50, c_h)
+        orig_w, orig_h = self._rendered_pil.size
+        if orig_w <= 0 or orig_h <= 0:
+            return
+
+        if self.is_fit_mode:
+            pad = 16
             scale_w = (c_w - pad) / orig_w
             scale_h = (c_h - pad) / orig_h
             scale = max(0.15, min(scale_w, scale_h))
-        elif self.zoom_mode == "50%":
-            scale = 0.5 / PREVIEW_BASE_SCALE
-        elif self.zoom_mode == "75%":
-            scale = 0.75 / PREVIEW_BASE_SCALE
-        elif self.zoom_mode == "100%":
-            scale = 1.0 / PREVIEW_BASE_SCALE
-        elif self.zoom_mode == "150%":
-            scale = 1.5 / PREVIEW_BASE_SCALE
+            self.zoom_level = scale
+            self._update_zoom_label()
         else:
-            scale = 0.4
+            scale = self.zoom_level
 
-        disp_w = int(orig_w * scale)
-        disp_h = int(orig_h * scale)
+        disp_w = max(10, int(orig_w * scale))
+        disp_h = max(10, int(orig_h * scale))
         self._current_canvas_scale = scale * PREVIEW_BASE_SCALE  # Relative to base template coordinates
 
         resized = self._rendered_pil.resize((disp_w, disp_h), Image.Resampling.LANCZOS)
@@ -302,8 +479,8 @@ class BroadsheetPreviewCanvas(ctk.CTkFrame):
 
         self.canvas.delete("all")
         # Center the image on the canvas
-        offset_x = max(6, (c_w - disp_w) // 2)
-        offset_y = max(6, (c_h - disp_h) // 2)
+        offset_x = max(8, (c_w - disp_w) // 2)
+        offset_y = max(8, (c_h - disp_h) // 2)
 
         self._img_x = offset_x
         self._img_y = offset_y
@@ -311,7 +488,9 @@ class BroadsheetPreviewCanvas(ctk.CTkFrame):
         self._disp_h = disp_h
 
         self.canvas.create_image(offset_x, offset_y, anchor="nw", image=self._displayed_photo, tags="sheet_img")
-        self.canvas.config(scrollregion=(0, 0, offset_x + disp_w + 12, offset_y + disp_h + 12))
+        scroll_w = max(c_w, offset_x + disp_w + 12)
+        scroll_h = max(c_h, offset_y + disp_h + 12)
+        self.canvas.config(scrollregion=(0, 0, scroll_w, scroll_h))
 
         self._draw_highlights()
 

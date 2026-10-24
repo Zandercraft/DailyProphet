@@ -44,6 +44,45 @@ SLOT_COLORS = {s.value: s.ui_colors for s in SlotType}
 SLOT_TYPES = SlotType.choices()
 BUILTIN_SHIPPED_LAYOUTS = [f"layout_{i}" for i in range(1, 10)]
 
+SLOT_FONT_FAMILIES = [
+    "Default (Auto)",
+    "Cinzel (Headline)",
+    "Unifraktur (Gothic)",
+    "Playfair (Subhead)",
+    "Playfair Italic",
+    "IM Fell English (Body)",
+    "IM Fell English Italic",
+]
+
+SLOT_TEXT_COLORS = [
+    "Default (Auto)",
+    "#120e0a (Ink Black)",
+    "#6e1818 (Crimson Red)",
+    "#5c4e40 (Muted Brown)",
+    "#8c7030 (Antique Gold)",
+    "#1a3045 (Raven Blue)",
+    "#1f4229 (Emerald Green)",
+]
+
+SLOT_FONT_SIZES = [
+    "Default (Auto)",
+    "8 pt",
+    "9 pt",
+    "10 pt",
+    "11 pt",
+    "12 pt",
+    "14 pt",
+    "16 pt",
+    "18 pt",
+    "20 pt",
+    "24 pt",
+    "28 pt",
+    "32 pt",
+    "36 pt",
+    "40 pt",
+    "48 pt",
+]
+
 
 class LayoutEditorWindow(ctk.CTkToplevel):
     def __init__(
@@ -75,10 +114,6 @@ class LayoutEditorWindow(ctk.CTkToplevel):
             except Exception:
                 pass
 
-        # Lift and focus window without disabling native maximization
-        self.lift()
-        self.attributes("-topmost", True)
-        self.after(80, lambda: self._finalize_focus())
         self.bind("<F11>", lambda e: self._toggle_maximize())
 
         self.defs_path = None
@@ -110,29 +145,39 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         self.resize_handle = None
         self.drawing_rect = None
 
-        # By default on first open, turn off the checkbox to save to global template on editing,
-        # even if the project manifest had it as true.
-        self.save_to_global_var = ctk.BooleanVar(value=False)
-
         self._setup_ui()
         self._load_layout_into_editor(self.current_layout_key)
 
-    def _finalize_focus(self):
+        # Ensure window is presented directly in front of the main window and given focus
+        self._present_in_front()
+
+    def _present_in_front(self):
         try:
-            self.attributes("-topmost", False)
+            if self.parent:
+                self.lift(self.parent)
+            else:
+                self.lift()
             self.focus_force()
+            self.after(50, lambda: self._safe_lift_focus())
+        except Exception:
+            pass
+
+    def _safe_lift_focus(self):
+        try:
+            if self.winfo_exists():
+                if self.parent:
+                    self.lift(self.parent)
+                else:
+                    self.lift()
+                self.focus_force()
         except Exception:
             pass
 
     def _toggle_maximize(self):
         if self.state() == "zoomed":
             self.state("normal")
-            if hasattr(self, "max_btn"):
-                self.max_btn.configure(image=IconManager.get_icon("maximize-2", size=15))
         else:
             self.state("zoomed")
-            if hasattr(self, "max_btn"):
-                self.max_btn.configure(image=IconManager.get_icon("minimize-2", size=15))
 
     def _setup_ui(self):
         # 1. TOP TOOLBAR
@@ -317,18 +362,6 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         draw_btn.pack(side="left", padx=2)
         add_tooltip(draw_btn, "Draw Slot: Click and drag on canvas to place a new slot")
 
-        self.save_global_check = ctk.CTkCheckBox(
-            action_box,
-            text="Global",
-            variable=self.save_to_global_var,
-            font=ctk.CTkFont(size=11),
-            text_color="#c2b6a4",
-            checkbox_width=18,
-            checkbox_height=18,
-        )
-        self.save_global_check.pack(side="left", padx=4)
-        add_tooltip(self.save_global_check, "Also update global installed template on disk")
-
         save_slots_btn = ctk.CTkButton(
             action_box,
             text="",
@@ -356,20 +389,6 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         )
         save_glob_btn.pack(side="left", padx=2)
         add_tooltip(save_glob_btn, "Save directly to global templates for all issues")
-
-        self.max_btn = ctk.CTkButton(
-            action_box,
-            text="",
-            image=IconManager.get_icon("maximize-2", size=15),
-            width=36,
-            height=32,
-            corner_radius=4,
-            fg_color=Theme.BTN_CONTROL[0],
-            hover_color=Theme.BTN_CONTROL[1],
-            command=self._toggle_maximize,
-        )
-        self.max_btn.pack(side="left", padx=2)
-        add_tooltip(self.max_btn, "Maximize / Restore Window (F11)")
 
         # 2. MAIN SPLIT (Canvas on left, Inspector on right)
         main_split = ctk.CTkFrame(self, fg_color="transparent")
@@ -504,6 +523,36 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         self.h_entry.pack(fill="x")
         self.h_entry.bind("<KeyRelease>", self._on_coord_typed)
 
+        # Slot Typography & Styling
+        ctk.CTkLabel(self.edit_frame, text="Typography & Styling:", font=ctk.CTkFont(size=11, weight="bold")).pack(
+            anchor="w", padx=10, pady=(6, 2)
+        )
+
+        ctk.CTkLabel(self.edit_frame, text="Font Family:", font=ctk.CTkFont(size=10)).pack(anchor="w", padx=10)
+        self.slot_font_menu = ctk.CTkOptionMenu(
+            self.edit_frame, values=SLOT_FONT_FAMILIES, height=26, command=self._on_slot_font_selected
+        )
+        self.slot_font_menu.pack(fill="x", padx=10, pady=(0, 4))
+
+        style_row = ctk.CTkFrame(self.edit_frame, fg_color="transparent")
+        style_row.pack(fill="x", padx=10, pady=(0, 6))
+
+        c_col = ctk.CTkFrame(style_row, fg_color="transparent")
+        c_col.pack(side="left", fill="x", expand=True, padx=(0, 4))
+        ctk.CTkLabel(c_col, text="Text Color:", font=ctk.CTkFont(size=10)).pack(anchor="w")
+        self.slot_color_menu = ctk.CTkOptionMenu(
+            c_col, values=SLOT_TEXT_COLORS, height=26, command=self._on_slot_color_selected
+        )
+        self.slot_color_menu.pack(fill="x")
+
+        c_sz = ctk.CTkFrame(style_row, fg_color="transparent")
+        c_sz.pack(side="right", fill="x", expand=True, padx=(4, 0))
+        ctk.CTkLabel(c_sz, text="Font Size:", font=ctk.CTkFont(size=10)).pack(anchor="w")
+        self.slot_size_menu = ctk.CTkOptionMenu(
+            c_sz, values=SLOT_FONT_SIZES, height=26, command=self._on_slot_size_selected
+        )
+        self.slot_size_menu.pack(fill="x")
+
         # Delete Slot Button
         ctk.CTkButton(
             self.edit_frame,
@@ -514,7 +563,7 @@ class LayoutEditorWindow(ctk.CTkToplevel):
             hover_color=Theme.BTN_DANGER[1],
             height=28,
             command=self._delete_selected_slot,
-        ).pack(fill="x", padx=10, pady=(2, 10))
+        ).pack(fill="x", padx=10, pady=(6, 10))
 
         # SLOTS LIST IN ACTIVE LAYOUT
         list_header = ctk.CTkFrame(parent, fg_color="transparent")
@@ -606,21 +655,14 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         # Generate wireframe mask for this layout
         generate_wireframe_mask_for_layout(self.current_layout_key, active_layout, base_dir=self.base_dir)
 
-        # If checkbox is checked, also save to global template
-        saved_globally = False
-        if self.save_to_global_var.get():
-            self._save_to_global_template(quiet=True)
-            saved_globally = True
-
         self._update_scope_badge()
 
         if callable(self.on_project_save):
             self.on_project_save()
 
-        glob_msg = "\n\n(Also updated and saved to global installed template)." if saved_globally else ""
         messagebox.showinfo(
             "Saved to Issue",
-            f"Layout slots for '{active_layout.get('label', self.current_layout_key)}' saved directly to this newspaper issue.{glob_msg}\n\n"
+            f"Layout slots for '{active_layout.get('label', self.current_layout_key)}' saved directly to this newspaper issue.\n\n"
             "These custom slots will be preserved in your .prophet project file and used for rendering and exports.",
             parent=self,
         )
@@ -1157,26 +1199,33 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         # Box outline
         self.canvas.create_rectangle(x1, y1, x2, y2, outline=line_color, width=line_width, tags=("slot", f"slot_{idx}"))
 
-        # Label tag
+        # Label tag (create text first to get exact bounding box, avoiding short black bar)
         tag_text = f"[{stype.upper()}] {slabel}"
-        self.canvas.create_rectangle(
-            x1 + 1,
-            y1 + 1,
-            x1 + min(rw * self.zoom_level - 2, len(tag_text) * 7.5 + 8),
-            y1 + 16,
-            fill="#111111",
-            outline=line_color,
-            tags=("slot", f"slot_{idx}"),
-        )
-        self.canvas.create_text(
-            x1 + 4,
-            y1 + 8,
+        f_size = max(8, int(9 * self.zoom_level))
+        lbl_font = ("Arial", f_size, "bold")
+        t_id = self.canvas.create_text(
+            x1 + 6,
+            y1 + 10,
             text=tag_text,
             anchor="w",
             fill="#FFFFFF" if not is_selected else "#FFD700",
-            font=("Arial", max(8, int(9 * self.zoom_level)), "bold"),
+            font=lbl_font,
             tags=("slot", f"slot_{idx}"),
         )
+        tb = self.canvas.bbox(t_id)
+        if tb:
+            rx2 = max(x1 + 30, tb[2] + 6)
+            ry2 = max(y1 + 18, tb[3] + 3)
+            bg_id = self.canvas.create_rectangle(
+                x1 + 1,
+                y1 + 1,
+                rx2,
+                ry2,
+                fill="#111111",
+                outline=line_color,
+                tags=("slot", f"slot_{idx}"),
+            )
+            self.canvas.tag_lower(bg_id, t_id)
 
     def _draw_selection_handles(self, slot):
         rx, ry, rw, rh = slot["rect"]
@@ -1441,6 +1490,35 @@ class LayoutEditorWindow(ctk.CTkToplevel):
 
         self._update_coords_display(slot["rect"])
 
+        # Typography: Font Family
+        ff = str(slot.get("font_family", "")).strip().lower()
+        matched_ff = "Default (Auto)"
+        for opt in SLOT_FONT_FAMILIES:
+            if ff and ff in opt.lower():
+                matched_ff = opt
+                break
+        self.slot_font_menu.set(matched_ff)
+
+        # Typography: Text Color
+        tc = str(slot.get("text_color", "")).strip().lower()
+        matched_tc = "Default (Auto)"
+        for opt in SLOT_TEXT_COLORS:
+            if tc and tc in opt.lower():
+                matched_tc = opt
+                break
+        self.slot_color_menu.set(matched_tc)
+
+        # Typography: Font Size
+        fs = slot.get("font_size")
+        matched_fs = "Default (Auto)"
+        if fs is not None:
+            fs_str = f"{fs} pt"
+            for opt in SLOT_FONT_SIZES:
+                if fs_str == opt:
+                    matched_fs = opt
+                    break
+        self.slot_size_menu.set(matched_fs)
+
     def _update_coords_display(self, rect):
         x, y, w, h = rect
         for entry, val in [(self.x_entry, x), (self.y_entry, y), (self.w_entry, w), (self.h_entry, h)]:
@@ -1452,6 +1530,9 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         self.slot_label_entry.delete(0, "end")
         for entry in [self.x_entry, self.y_entry, self.w_entry, self.h_entry]:
             entry.delete(0, "end")
+        self.slot_font_menu.set("Default (Auto)")
+        self.slot_color_menu.set("Default (Auto)")
+        self.slot_size_menu.set("Default (Auto)")
 
     def _on_slot_prop_changed(self, event=None):
         if self.selected_slot_index is None:
@@ -1468,6 +1549,41 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         slots = self.layouts_data[self.current_layout_key]["slots"]
         slots[self.selected_slot_index]["type"] = choice
         self._refresh_slots_list()
+        self._refresh_canvas()
+
+    def _on_slot_font_selected(self, choice: str) -> None:
+        if self.selected_slot_index is None:
+            return
+        slots = self.layouts_data[self.current_layout_key]["slots"]
+        if choice == "Default (Auto)":
+            slots[self.selected_slot_index].pop("font_family", None)
+        else:
+            slots[self.selected_slot_index]["font_family"] = choice
+        self._refresh_canvas()
+
+    def _on_slot_color_selected(self, choice: str) -> None:
+        if self.selected_slot_index is None:
+            return
+        slots = self.layouts_data[self.current_layout_key]["slots"]
+        if choice == "Default (Auto)":
+            slots[self.selected_slot_index].pop("text_color", None)
+        else:
+            hex_val = choice.split()[0]
+            slots[self.selected_slot_index]["text_color"] = hex_val
+        self._refresh_canvas()
+
+    def _on_slot_size_selected(self, choice: str) -> None:
+        if self.selected_slot_index is None:
+            return
+        slots = self.layouts_data[self.current_layout_key]["slots"]
+        if choice == "Default (Auto)":
+            slots[self.selected_slot_index].pop("font_size", None)
+        else:
+            try:
+                sz = int(choice.replace("pt", "").strip())
+                slots[self.selected_slot_index]["font_size"] = sz
+            except ValueError:
+                pass
         self._refresh_canvas()
 
     def _on_coord_typed(self, event=None):

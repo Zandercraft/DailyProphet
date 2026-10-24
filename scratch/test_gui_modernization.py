@@ -44,5 +44,20 @@ app.update()
 assert app.floating_preview_win is None, "Preview re-dock failed"
 print("Preview dock back ok.")
 
+# 6. Test preview canvas zoom, pan, and responsive resize
+pc = app.preview_canvas
+assert pc.is_fit_mode is True, "Preview should start in auto-fit mode"
+pc._zoom_in()
+assert pc.is_fit_mode is False, "Zoom in should switch to custom zoom"
+pc._zoom_fit()
+assert pc.is_fit_mode is True, "Fit button should restore fit mode"
+
+# Simulate screen resize event
+ev = type("ResizeEvent", (), {"width": 800, "height": 1000})()
+pc._on_canvas_resize(ev)
+pc._handle_delayed_resize()
+assert pc.is_fit_mode is True
+print("Preview canvas zoom, pan, and responsive resize ok.")
+
 app.destroy()
 print("All functional GUI smoke tests PASSED!")
