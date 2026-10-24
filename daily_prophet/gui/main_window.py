@@ -117,7 +117,7 @@ class MainWindow(ctk.CTk):
             text="THE DAILY PROPHET",
             font=Theme.font_masthead(size=20, weight="bold"),
             text_color=Theme.TEXT_PARCHMENT,
-        ).pack(anchor="w", pady=(4, 0))
+        ).pack(anchor="w", pady=(8, 0))
 
         ctk.CTkLabel(
             titles_text_box,
