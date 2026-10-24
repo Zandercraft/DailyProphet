@@ -124,6 +124,16 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         except Exception:
             pass
 
+    def _toggle_maximize(self):
+        if self.state() == "zoomed":
+            self.state("normal")
+            if hasattr(self, "max_btn"):
+                self.max_btn.configure(image=IconManager.get_icon("maximize-2", size=15))
+        else:
+            self.state("zoomed")
+            if hasattr(self, "max_btn"):
+                self.max_btn.configure(image=IconManager.get_icon("minimize-2", size=15))
+
     def _setup_ui(self):
         # 1. TOP TOOLBAR
         top_bar = ctk.CTkFrame(self, fg_color=Theme.HEADER_BG, corner_radius=0, height=50)
@@ -289,29 +299,27 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         z_fit_btn.pack(side="left", padx=1)
         add_tooltip(z_fit_btn, "Fit Page to Window Width")
 
-        # Actions on right: Draw Slot, Save to Project, Save Global
+        # Actions on right: Draw Slot, Save to Project, Save Global, Maximize
         action_box = ctk.CTkFrame(top_bar, fg_color="transparent")
         action_box.pack(side="right", padx=8)
 
         draw_btn = ctk.CTkButton(
             action_box,
-            text=" Draw Slot",
-            image=IconManager.get_icon("plus", size=13),
-            compound="left",
-            width=92,
-            height=28,
+            text="",
+            image=IconManager.get_icon("plus", size=16),
+            width=36,
+            height=32,
             corner_radius=4,
-            font=ctk.CTkFont(size=11, weight="bold"),
             fg_color=Theme.BTN_SUCCESS[0],
             hover_color=Theme.BTN_SUCCESS[1],
             command=self._activate_draw_mode,
         )
         draw_btn.pack(side="left", padx=2)
-        add_tooltip(draw_btn, "Activate Draw Mode (Click and drag on canvas to place a slot)")
+        add_tooltip(draw_btn, "Draw Slot: Click and drag on canvas to place a new slot")
 
         self.save_global_check = ctk.CTkCheckBox(
             action_box,
-            text="Also global",
+            text="Global",
             variable=self.save_to_global_var,
             font=ctk.CTkFont(size=11),
             text_color="#c2b6a4",
@@ -323,13 +331,11 @@ class LayoutEditorWindow(ctk.CTkToplevel):
 
         save_slots_btn = ctk.CTkButton(
             action_box,
-            text=" Save",
-            image=IconManager.get_icon("save", size=13),
-            compound="left",
-            width=72,
-            height=28,
+            text="",
+            image=IconManager.get_icon("save", size=16),
+            width=36,
+            height=32,
             corner_radius=4,
-            font=ctk.CTkFont(size=11, weight="bold"),
             fg_color=Theme.BTN_PRIMARY[0],
             hover_color=Theme.BTN_PRIMARY[1],
             command=self._save_to_current_project,
@@ -340,9 +346,9 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         save_glob_btn = ctk.CTkButton(
             action_box,
             text="",
-            image=IconManager.get_icon("globe", size=13),
-            width=30,
-            height=28,
+            image=IconManager.get_icon("globe", size=16),
+            width=36,
+            height=32,
             corner_radius=4,
             fg_color=Theme.BTN_NEUTRAL[0],
             hover_color=Theme.BTN_NEUTRAL[1],
@@ -350,6 +356,20 @@ class LayoutEditorWindow(ctk.CTkToplevel):
         )
         save_glob_btn.pack(side="left", padx=2)
         add_tooltip(save_glob_btn, "Save directly to global templates for all issues")
+
+        self.max_btn = ctk.CTkButton(
+            action_box,
+            text="",
+            image=IconManager.get_icon("maximize-2", size=15),
+            width=36,
+            height=32,
+            corner_radius=4,
+            fg_color=Theme.BTN_CONTROL[0],
+            hover_color=Theme.BTN_CONTROL[1],
+            command=self._toggle_maximize,
+        )
+        self.max_btn.pack(side="left", padx=2)
+        add_tooltip(self.max_btn, "Maximize / Restore Window (F11)")
 
         # 2. MAIN SPLIT (Canvas on left, Inspector on right)
         main_split = ctk.CTkFrame(self, fg_color="transparent")

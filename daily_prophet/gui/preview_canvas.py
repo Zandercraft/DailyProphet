@@ -74,16 +74,14 @@ class BroadsheetPreviewCanvas(ctk.CTkFrame):
 
         # Detach / Dock button
         if self.on_detach_requested:
-            detach_text = " Dock" if self.is_detached else " Pop Out"
             detach_icon = "minimize-2" if self.is_detached else "maximize-2"
             self.detach_btn = ctk.CTkButton(
                 toolbar,
-                text=detach_text,
-                image=IconManager.get_icon(detach_icon, size=13),
-                compound="left",
-                width=85,
-                height=26,
-                font=ctk.CTkFont(size=11, weight="bold"),
+                text="",
+                image=IconManager.get_icon(detach_icon, size=15),
+                width=36,
+                height=30,
+                corner_radius=4,
                 fg_color=Theme.BTN_NEUTRAL[0],
                 hover_color=Theme.BTN_NEUTRAL[1],
                 command=self.on_detach_requested,
@@ -103,9 +101,9 @@ class BroadsheetPreviewCanvas(ctk.CTkFrame):
         self.zoom_menu = ctk.CTkOptionMenu(
             zoom_frame,
             values=["Fit to Screen", "50%", "75%", "100%", "150%"],
-            width=110,
-            height=26,
-            font=ctk.CTkFont(size=11),
+            width=115,
+            height=30,
+            font=ctk.CTkFont(size=12),
             fg_color=Theme.BTN_SECONDARY[0],
             button_color=Theme.BTN_SECONDARY[1],
             command=self._on_zoom_changed,
@@ -131,15 +129,16 @@ class BroadsheetPreviewCanvas(ctk.CTkFrame):
         self.canvas.bind("<Configure>", self._on_canvas_resize)
 
         # 3. Bottom Page Flip Bar
-        flip_bar = ctk.CTkFrame(self, fg_color=Theme.HEADER_BG, height=36, corner_radius=4)
+        flip_bar = ctk.CTkFrame(self, fg_color=Theme.HEADER_BG, height=38, corner_radius=4)
         flip_bar.pack(fill="x", padx=4, pady=(2, 4))
 
         self.prev_btn = ctk.CTkButton(
             flip_bar,
             text="",
-            image=IconManager.get_icon("chevron-left", size=14),
-            width=30,
-            height=26,
+            image=IconManager.get_icon("chevron-left", size=15),
+            width=32,
+            height=28,
+            corner_radius=4,
             fg_color=Theme.BTN_CONTROL[0],
             hover_color=Theme.BTN_CONTROL[1],
             command=self._prev_page,
@@ -148,16 +147,17 @@ class BroadsheetPreviewCanvas(ctk.CTkFrame):
         add_tooltip(self.prev_btn, "Previous Broadsheet Page")
 
         self.page_status_lbl = ctk.CTkLabel(
-            flip_bar, text="Page 1 of 1", font=ctk.CTkFont(size=12, weight="bold"), text_color=Theme.TEXT_PARCHMENT
+            flip_bar, text="Page 1 of 1", font=ctk.CTkFont(size=13, weight="bold"), text_color=Theme.TEXT_PARCHMENT
         )
         self.page_status_lbl.pack(side="left", padx=6)
 
         self.next_btn = ctk.CTkButton(
             flip_bar,
             text="",
-            image=IconManager.get_icon("chevron-right", size=14),
-            width=30,
-            height=26,
+            image=IconManager.get_icon("chevron-right", size=15),
+            width=32,
+            height=28,
+            corner_radius=4,
             fg_color=Theme.BTN_CONTROL[0],
             hover_color=Theme.BTN_CONTROL[1],
             command=self._next_page,
@@ -166,7 +166,7 @@ class BroadsheetPreviewCanvas(ctk.CTkFrame):
         add_tooltip(self.next_btn, "Next Broadsheet Page")
 
         self.page_title_lbl = ctk.CTkLabel(
-            flip_bar, text="Front Page", font=ctk.CTkFont(size=12, slant="italic"), text_color=Theme.TEXT_MUTED
+            flip_bar, text="Front Page", font=ctk.CTkFont(size=13, slant="italic"), text_color=Theme.TEXT_MUTED
         )
         self.page_title_lbl.pack(side="right", padx=10)
 

@@ -99,13 +99,11 @@ class StoryComposer(ctk.CTkFrame):
         # Lorem Ipsum Button
         lorem_btn = ctk.CTkButton(
             header_bar,
-            text=" Lorem Ipsum",
-            image=IconManager.get_icon("sparkles", size=13),
-            compound="left",
-            width=115,
-            height=28,
+            text="",
+            image=IconManager.get_icon("sparkles", size=16),
+            width=36,
+            height=30,
             corner_radius=4,
-            font=ctk.CTkFont(size=11),
             fg_color=Theme.BTN_SECONDARY[0],
             hover_color=Theme.BTN_SECONDARY[1],
             command=self._insert_lorem_ipsum,
@@ -222,11 +220,11 @@ class StoryComposer(ctk.CTkFrame):
 
         lib_btn = ctk.CTkButton(
             art_row,
-            text=" Library...",
-            image=IconManager.get_icon("image", size=13),
-            compound="left",
-            width=95,
-            height=28,
+            text="",
+            image=IconManager.get_icon("image", size=16),
+            width=36,
+            height=30,
+            corner_radius=4,
             font=ctk.CTkFont(size=11),
             command=self._open_library,
         )
@@ -235,11 +233,11 @@ class StoryComposer(ctk.CTkFrame):
 
         clear_btn = ctk.CTkButton(
             art_row,
-            text=" Clear",
-            image=IconManager.get_icon("x", size=11),
-            compound="left",
-            width=65,
-            height=28,
+            text="",
+            image=IconManager.get_icon("x", size=14),
+            width=34,
+            height=30,
+            corner_radius=4,
             font=ctk.CTkFont(size=11),
             fg_color=Theme.BTN_CONTROL[0],
             command=self._clear_photo,

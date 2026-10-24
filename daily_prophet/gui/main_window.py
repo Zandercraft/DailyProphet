@@ -173,17 +173,15 @@ class MainWindow(ctk.CTk):
         add_tooltip(save_btn, "Save Project")
 
         # Subtle separator
-        ctk.CTkFrame(top_btns, width=1, height=20, fg_color=Theme.BORDER_MEDIUM).pack(side="left", padx=6)
+        ctk.CTkFrame(top_btns, width=1, height=22, fg_color=Theme.BORDER_MEDIUM).pack(side="left", padx=6)
 
         sample_btn = ctk.CTkButton(
             top_btns,
-            text=" Hogwarts Issue",
-            image=IconManager.get_icon("scroll-unfurled", size=13, pack="rpg"),
-            compound="left",
-            width=120,
-            height=30,
+            text="",
+            image=IconManager.get_icon("scroll-unfurled", size=16, pack="rpg"),
+            width=36,
+            height=32,
             corner_radius=4,
-            font=ctk.CTkFont(size=11, weight="bold"),
             fg_color=Theme.BTN_PRIMARY[0],
             hover_color=Theme.BTN_PRIMARY[1],
             command=self._load_hogwarts_original,
@@ -195,7 +193,7 @@ class MainWindow(ctk.CTk):
         parent = self.tab_stories
 
         # Page Ribbon Strip
-        self.page_ribbon = ctk.CTkFrame(parent, fg_color=Theme.HEADER_BG, height=38, corner_radius=6)
+        self.page_ribbon = ctk.CTkFrame(parent, fg_color=Theme.HEADER_BG, height=42, corner_radius=6)
         self.page_ribbon.pack(fill="x", padx=4, pady=(4, 6))
 
         # Integrated page tabs container (holds tabs and add/delete buttons)
@@ -209,9 +207,9 @@ class MainWindow(ctk.CTk):
         ctk.CTkLabel(
             layout_box,
             text=" Layout:",
-            image=IconManager.get_icon("layout-grid", size=14),
+            image=IconManager.get_icon("layout-grid", size=15),
             compound="left",
-            font=ctk.CTkFont(family="Georgia", size=11, weight="bold"),
+            font=ctk.CTkFont(family="Georgia", size=12, weight="bold"),
             text_color=Theme.TEXT_PARCHMENT,
         ).pack(side="left", padx=(0, 4))
 
@@ -220,9 +218,9 @@ class MainWindow(ctk.CTk):
         self.template_selector = ctk.CTkOptionMenu(
             layout_box,
             values=["Layout 1: Broadsheet Lead & Gazette"],
-            width=175,
-            height=28,
-            font=ctk.CTkFont(size=11),
+            width=190,
+            height=30,
+            font=ctk.CTkFont(size=12),
             fg_color=Theme.BTN_SECONDARY[0],
             button_color=Theme.BTN_SECONDARY[1],
             command=self._on_layout_template_changed,
@@ -232,13 +230,11 @@ class MainWindow(ctk.CTk):
 
         slots_btn = ctk.CTkButton(
             layout_box,
-            text=" Slots",
-            image=IconManager.get_icon("pencil", size=12),
-            compound="left",
-            width=62,
-            height=28,
+            text="",
+            image=IconManager.get_icon("pencil", size=15),
+            width=36,
+            height=30,
             corner_radius=4,
-            font=ctk.CTkFont(size=11),
             fg_color=Theme.BTN_NEUTRAL[0],
             hover_color=Theme.BTN_NEUTRAL[1],
             command=self._open_layout_editor,
@@ -251,7 +247,7 @@ class MainWindow(ctk.CTk):
         self.workspace.pack(fill="both", expand=True, padx=2, pady=2)
 
         # 1. LEFT PANE: Stories Navigator
-        self.left_pane = ctk.CTkFrame(self.workspace, width=225, fg_color=Theme.PANEL_BG)
+        self.left_pane = ctk.CTkFrame(self.workspace, width=235, fg_color=Theme.PANEL_BG)
         self.left_pane.pack(side="left", fill="both", expand=False, padx=(0, 4))
         self.left_pane.pack_propagate(False)
 
@@ -314,13 +310,11 @@ class MainWindow(ctk.CTk):
 
         move_btn = ctk.CTkButton(
             nav_tools,
-            text=" Move",
-            image=IconManager.get_icon("arrow-right", size=12),
-            compound="left",
-            width=62,
+            text="",
+            image=IconManager.get_icon("arrow-right", size=14),
+            width=32,
             height=26,
             corner_radius=4,
-            font=ctk.CTkFont(size=11),
             fg_color=Theme.BTN_SECONDARY[0],
             hover_color=Theme.BTN_SECONDARY[1],
             command=self._move_story_to_page_dialog,
@@ -382,13 +376,11 @@ class MainWindow(ctk.CTk):
 
         pdf_btn = ctk.CTkButton(
             action_btns,
-            text=" Export PDF",
-            image=IconManager.get_icon("file-text", size=14),
-            compound="left",
-            width=115,
+            text="",
+            image=IconManager.get_icon("file-text", size=17),
+            width=38,
             height=30,
             corner_radius=4,
-            font=ctk.CTkFont(size=11, weight="bold"),
             fg_color=Theme.BTN_SUCCESS[0],
             hover_color=Theme.BTN_SUCCESS[1],
             command=self._export_pdf,
@@ -398,19 +390,17 @@ class MainWindow(ctk.CTk):
 
         img_btn = ctk.CTkButton(
             action_btns,
-            text=" Export Images",
-            image=IconManager.get_icon("image", size=14),
-            compound="left",
-            width=120,
+            text="",
+            image=IconManager.get_icon("image", size=17),
+            width=38,
             height=30,
             corner_radius=4,
-            font=ctk.CTkFont(size=11, weight="bold"),
             fg_color=Theme.BTN_NEUTRAL[0],
             hover_color=Theme.BTN_NEUTRAL[1],
             command=self._export_images_dialog,
         )
         img_btn.pack(side="left", padx=2)
-        add_tooltip(img_btn, "Export Pages as High-Resolution PNG Images")
+        add_tooltip(img_btn, "Export Pages as PNG Images or Animated GIF")
 
     def _setup_settings_tab(self):
         parent = self.tab_settings
