@@ -1,12 +1,14 @@
 """The Daily Prophet Newspaper Generator package."""
 from .models import Story, StoryPriority, NewspaperEdition
-from .template_engine import generate_newspaper_html
 from .sample_data import get_sample_edition
+from .native_renderer import NativeBroadsheetRenderer, export_native_pdf, export_native_image
 
 __all__ = [
     "Story",
     "StoryPriority",
     "NewspaperEdition",
-    "generate_newspaper_html",
+    "NativeBroadsheetRenderer",
+    "export_native_pdf",
+    "export_native_image",
     "get_sample_edition",
 ]

@@ -2,7 +2,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Optional, Tuple, Union
 
 
 class SlotType(str, Enum):
@@ -28,7 +28,7 @@ class SlotType(str, Enum):
         return [member.value for member in cls]
 
     @classmethod
-    def from_string(cls, val: Any) -> "SlotType":
+    def from_string(cls, val: Union[str, SlotType, object]) -> SlotType:
         """Safely parses a string or enum to SlotType, defaulting to BODY."""
         if isinstance(val, SlotType):
             return val
@@ -129,7 +129,7 @@ class LayoutStatus(str, Enum):
     CUSTOM = "Custom"
 
     @classmethod
-    def determine(cls, is_bundled: bool, is_modified: bool) -> "LayoutStatus":
+    def determine(cls, is_bundled: bool, is_modified: bool) -> LayoutStatus:
         """Calculates layout status from bundled flag and modified diff."""
         if is_modified:
             return cls.MODIFIED
@@ -140,10 +140,10 @@ class LayoutStatus(str, Enum):
     @property
     def badge_text(self) -> str:
         if self == LayoutStatus.MODIFIED:
-            return "📌 Modified (Issue Custom)"
+            return "Modified (Issue Custom)"
         if self == LayoutStatus.BUNDLED:
-            return "🔒 Bundled Template (Protected)"
-        return "🌐 Custom Template"
+            return "Bundled Template (Protected)"
+        return "Custom Template"
 
     @property
     def badge_color(self) -> str:
@@ -191,7 +191,7 @@ class LayoutSlot:
     def area(self) -> int:
         return self.width * self.height
 
-    def is_modified(self, other: "LayoutSlot") -> bool:
+    def is_modified(self, other: LayoutSlot) -> bool:
         """Compares geometry, type, and label against another slot definition."""
         if not isinstance(other, LayoutSlot):
             return True
@@ -202,7 +202,7 @@ class LayoutSlot:
             self.label != other.label
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> Dict[str, object]:
         """Serializes the slot to dictionary format."""
         return {
             "id": self.id,
@@ -213,7 +213,7 @@ class LayoutSlot:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "LayoutSlot":
+    def from_dict(cls, data: Dict[str, object]) -> LayoutSlot:
         """Deserializes slot from dictionary."""
         return cls(
             id=str(data.get("id", "")),
@@ -246,7 +246,7 @@ class LayoutDefinition:
         target = SlotType.from_string(slot_type)
         return [s for s in self.slots if s.type == target]
 
-    def is_modified_from(self, other: Optional["LayoutDefinition"]) -> bool:
+    def is_modified_from(self, other: Optional[LayoutDefinition]) -> bool:
         """Determines if this layout differs in slot count, bounds, types, or labels."""
         if not other:
             return False
@@ -263,9 +263,9 @@ class LayoutDefinition:
 
         return False
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> Dict[str, object]:
         """Serializes layout definition to dictionary."""
-        d = {
+        d: Dict[str, object] = {
             "id": self.id,
             "name": self.name,
             "description": self.description,
@@ -280,7 +280,7 @@ class LayoutDefinition:
         return d
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "LayoutDefinition":
+    def from_dict(cls, data: Dict[str, object]) -> LayoutDefinition:
         """Deserializes layout definition from dictionary."""
         raw_slots = data.get("slots", [])
         slots = [s if isinstance(s, LayoutSlot) else LayoutSlot.from_dict(s) for s in raw_slots]

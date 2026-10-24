@@ -1,7 +1,7 @@
 """Test saving and loading the new .prophet custom project format."""
 import os
 import zipfile
-from daily_prophet.models import NewspaperEdition, Story
+from daily_prophet.models import NewspaperEdition
 from daily_prophet.sample_data import get_original_hogwarts_edition
 
 def test_prophet_package():

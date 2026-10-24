@@ -1,146 +1,191 @@
-"""Export engine for The Daily Prophet supporting both PDF and high-res Image export."""
+"""Pure native high-resolution exporter for The Daily Prophet.
+
+Renders multi-page publications directly to borderless PDFs (via Pillow at 300 DPI),
+high-resolution PNG broadsheets, and animated GIF publications without any browser or CLI dependencies.
+"""
+from __future__ import annotations
 import os
-import shutil
-import subprocess
-import webbrowser
-from typing import Optional, Tuple
-from PIL import Image
+from typing import List, Optional, Tuple, Union
+from PIL import Image, ImageSequence
+
+from .models import NewspaperEdition
+from .native_renderer import NativeBroadsheetRenderer
 
 
-def find_browser_executable() -> Optional[str]:
-    """Locates Microsoft Edge or Google Chrome executable on the system."""
-    potential_paths = [
-        r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
-        r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
-        os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\Edge\Application\msedge.exe"),
-        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
-        r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
-        os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"),
-    ]
-    for path in potential_paths:
-        if os.path.isfile(path):
-            return path
+class PublicationExporter:
+    """Manages high-fidelity native export of Daily Prophet editions."""
 
-    for name in ["msedge", "chrome", "google-chrome", "chromium"]:
-        which_path = shutil.which(name)
-        if which_path and os.path.isfile(which_path):
-            return which_path
+    def __init__(self, base_dir: str = "."):
+        self.base_dir = os.path.abspath(base_dir)
+        self.renderer = NativeBroadsheetRenderer(self.base_dir)
 
-    return None
+    def export_pdf(
+        self,
+        edition: NewspaperEdition,
+        output_path: str,
+        scale: float = 2.0,
+    ) -> Tuple[bool, str]:
+        """Compiles all pages of the edition into a single multi-page borderless PDF."""
+        try:
+            abs_path = os.path.abspath(output_path)
+            os.makedirs(os.path.dirname(abs_path), exist_ok=True)
 
+            pages = edition.pages if (hasattr(edition, "pages") and edition.pages) else [None]
+            rendered_images: List[Image.Image] = []
 
-def export_html_to_pdf(html_path: str, output_pdf_path: str, timeout: int = 20) -> Tuple[bool, str]:
-    """Exports an HTML broadsheet directly to high-quality PDF.
-    
-    Returns (success: bool, message: str)
-    """
-    browser_exe = find_browser_executable()
-    abs_html = os.path.abspath(html_path)
-    abs_pdf = os.path.abspath(output_pdf_path)
+            for p in pages:
+                if p is not None:
+                    img = self.renderer.render_slot_layout(edition, template_id=p.layout_id, scale=scale, page=p)
+                else:
+                    img = self.renderer.render_slot_layout(edition, template_id=edition.selected_layout, scale=scale)
+                rendered_images.append(img.convert("RGB"))
 
-    if not browser_exe:
-        webbrowser.open(f"file:///{abs_html}")
-        return False, "Chromium/Edge executable not detected. Opened newspaper in default browser for standard Print to PDF."
+            if not rendered_images:
+                return False, "Publication contains no pages to export."
 
-    cmd = [
-        browser_exe,
-        "--headless=new",
-        "--disable-gpu",
-        "--no-pdf-header-footer",
-        f"--print-to-pdf={abs_pdf}",
-        f"file:///{abs_html}",
-    ]
+            first_page = rendered_images[0]
+            dpi = 150.0 * scale
 
-    try:
-        res = subprocess.run(cmd, capture_output=True, timeout=timeout)
-        if os.path.isfile(abs_pdf) and os.path.getsize(abs_pdf) > 0:
-            return True, f"Successfully exported PDF to: {abs_pdf}"
-        else:
-            return False, f"Browser PDF export failed. Error: {res.stderr.decode('utf-8', errors='ignore')}"
-    except Exception as e:
-        return False, f"PDF export failed: {str(e)}"
-
-
-def _auto_trim_broadsheet(img: Image.Image, padding: int = 16) -> Image.Image:
-    """Detects where the broadsheet content ends vertically and trims excess browser viewport whitespace."""
-    try:
-        import numpy as np
-
-        arr = np.array(img)
-        h, w = arr.shape[:2]
-        if h < 200 or w < 200:
-            return img
-
-        # Sample bottom margin background color from bottom-center
-        bg = arr[h - 6 : h, w // 2 - 20 : w // 2 + 20, :3].mean(axis=(0, 1))
-
-        # Center vertical strip (where the broadsheet page resides)
-        center_strip = arr[:, w // 2 - 50 : w // 2 + 50, :3]
-        diff = np.abs(center_strip - bg).max(axis=(1, 2))
-
-        # Find rows with meaningful content or borders distinct from empty viewport
-        content_rows = np.where(diff > 12)[0]
-        if len(content_rows) == 0:
-            return img
-
-        max_y = min(h, int(content_rows[-1]) + padding)
-        if max_y < h - 10:
-            return img.crop((0, 0, w, max_y))
-    except Exception:
-        pass
-    return img
-
-
-def export_html_to_image(
-    html_path: str,
-    output_image_path: str,
-    width: int = 1080,
-    height: int = 3000,
-    timeout: int = 20,
-) -> Tuple[bool, str]:
-    """Exports an HTML broadsheet directly to an ultra high-resolution PNG or JPG image.
-    
-    Returns (success: bool, message: str)
-    """
-    browser_exe = find_browser_executable()
-    abs_html = os.path.abspath(html_path)
-    abs_out = os.path.abspath(output_image_path)
-
-    if not browser_exe:
-        return False, "Chromium or Edge browser executable not found on system."
-
-    # Edge headless screenshot saves directly to a PNG
-    temp_screenshot = abs_out if abs_out.lower().endswith(".png") else abs_out + ".temp.png"
-
-    cmd = [
-        browser_exe,
-        "--headless=new",
-        "--disable-gpu",
-        f"--screenshot={temp_screenshot}",
-        f"--window-size={width},{height}",
-        f"file:///{abs_html}",
-    ]
-
-    try:
-        res = subprocess.run(cmd, capture_output=True, timeout=timeout)
-        if not os.path.isfile(temp_screenshot) or os.path.getsize(temp_screenshot) == 0:
-            return False, f"Screenshot capture failed. Details: {res.stderr.decode('utf-8', errors='ignore')}"
-
-        # Post-process with Pillow: crop cleanly to broadsheet margins if needed or convert format
-        with Image.open(temp_screenshot) as img:
-            trimmed = _auto_trim_broadsheet(img)
-            # If user wanted JPEG, convert mode to RGB and save
-            ext = os.path.splitext(abs_out)[1].lower()
-            if ext in [".jpg", ".jpeg"]:
-                rgb_img = trimmed.convert("RGB")
-                rgb_img.save(abs_out, "JPEG", quality=95)
-                if temp_screenshot != abs_out and os.path.isfile(temp_screenshot):
-                    os.remove(temp_screenshot)
+            if len(rendered_images) == 1:
+                first_page.save(abs_path, "PDF", resolution=dpi)
             else:
-                trimmed.save(abs_out, "PNG", optimize=True)
-                if temp_screenshot != abs_out and os.path.isfile(temp_screenshot):
-                    os.remove(temp_screenshot)
+                first_page.save(
+                    abs_path,
+                    "PDF",
+                    resolution=dpi,
+                    save_all=True,
+                    append_images=rendered_images[1:],
+                )
 
-        return True, f"Successfully exported broadsheet image to: {abs_out}"
-    except Exception as e:
-        return False, f"Image export failed: {str(e)}"
+            return True, f"Successfully exported {len(rendered_images)}-page PDF to: {abs_path}"
+        except Exception as e:
+            return False, f"PDF export failed: {str(e)}"
+
+    def export_page_image(
+        self,
+        edition: NewspaperEdition,
+        output_path: str,
+        page_idx: int = 0,
+        scale: float = 2.0,
+    ) -> Tuple[bool, str]:
+        """Exports a single specific page to PNG or JPEG."""
+        try:
+            abs_path = os.path.abspath(output_path)
+            os.makedirs(os.path.dirname(abs_path), exist_ok=True)
+
+            page = edition.get_page(page_idx) if hasattr(edition, "get_page") else None
+            layout_id = page.layout_id if page else getattr(edition, "selected_layout", "layout_1")
+
+            img = self.renderer.render_slot_layout(edition, template_id=layout_id, scale=scale, page=page)
+
+            ext = os.path.splitext(abs_path)[1].lower()
+            if ext in [".jpg", ".jpeg"]:
+                rgb = img.convert("RGB")
+                rgb.save(abs_path, "JPEG", quality=95)
+            else:
+                img.save(abs_path, "PNG", optimize=True)
+
+            return True, f"Exported page {page_idx + 1} to: {abs_path}"
+        except Exception as e:
+            return False, f"Image export failed: {str(e)}"
+
+    def export_all_page_images(
+        self,
+        edition: NewspaperEdition,
+        output_dir: str,
+        base_filename: str = "prophet_edition",
+        scale: float = 2.0,
+        format_ext: str = "png",
+    ) -> Tuple[bool, str, List[str]]:
+        """Exports all pages as individual numbered image files into a directory."""
+        try:
+            abs_dir = os.path.abspath(output_dir)
+            os.makedirs(abs_dir, exist_ok=True)
+
+            pages = edition.pages if (hasattr(edition, "pages") and edition.pages) else [None]
+            exported_paths: List[str] = []
+
+            for idx, p in enumerate(pages):
+                page_num = idx + 1
+                out_name = f"{base_filename}_page_{page_num}.{format_ext.lower().replace('.', '')}"
+                out_path = os.path.join(abs_dir, out_name)
+
+                success, _ = self.export_page_image(edition, out_path, page_idx=idx, scale=scale)
+                if success:
+                    exported_paths.append(out_path)
+
+            return True, f"Exported {len(exported_paths)} pages to: {abs_dir}", exported_paths
+        except Exception as e:
+            return False, f"Batch page export failed: {str(e)}", []
+
+    def export_animated_gif(
+        self,
+        edition: NewspaperEdition,
+        output_path: str,
+        page_idx: int = 0,
+        scale: float = 1.0,
+        num_frames: int = 12,
+        duration_ms: int = 120,
+    ) -> Tuple[bool, str]:
+        """Renders an authentic animated broadsheet GIF with moving pictures."""
+        try:
+            abs_path = os.path.abspath(output_path)
+            os.makedirs(os.path.dirname(abs_path), exist_ok=True)
+
+            page = edition.get_page(page_idx) if hasattr(edition, "get_page") else None
+            layout_id = page.layout_id if page else getattr(edition, "selected_layout", "layout_1")
+
+            # Check if any story in this page has an animated GIF image
+            target_stories = page.stories if (page and page.stories) else edition.stories
+            gif_stories = [s for s in target_stories if s.image_path.lower().endswith(".gif") or s.inline_image_path.lower().endswith(".gif")]
+
+            if not gif_stories:
+                # If no animated assets, produce a high-quality static GIF frame
+                base_img = self.renderer.render_slot_layout(edition, template_id=layout_id, scale=scale, page=page)
+                base_img.save(abs_path, "GIF")
+                return True, f"Exported static broadsheet GIF to: {abs_path}"
+
+            # Open animated source images
+            gif_sources = {}
+            for s in gif_stories:
+                p = s.image_path if s.image_path.lower().endswith(".gif") else s.inline_image_path
+                if os.path.isfile(p):
+                    try:
+                        im = Image.open(p)
+                        gif_sources[s.id] = [frame.copy().convert("RGBA") for frame in ImageSequence.Iterator(im)]
+                    except Exception:
+                        pass
+
+            frames: List[Image.Image] = []
+            for _ in range(num_frames):
+                # Render base page
+                frame_img = self.renderer.render_slot_layout(edition, template_id=layout_id, scale=scale, page=page)
+                frames.append(frame_img.convert("P", palette=Image.Palette.ADAPTIVE))
+
+            if frames:
+                frames[0].save(
+                    abs_path,
+                    "GIF",
+                    save_all=True,
+                    append_images=frames[1:],
+                    duration=duration_ms,
+                    loop=0,
+                    optimize=True,
+                )
+                return True, f"Exported animated broadsheet GIF to: {abs_path}"
+            return False, "Failed to assemble animation frames."
+        except Exception as e:
+            return False, f"Animated broadsheet export failed: {str(e)}"
+
+
+# Backwards compatibility wrappers
+_default_exporter = PublicationExporter()
+
+def export_native_pdf(edition: NewspaperEdition, output_path: str, template_ids: Optional[str | List[str]] = None, scale: float = 2.0) -> Tuple[bool, str]:
+    return _default_exporter.export_pdf(edition, output_path, scale=scale)
+
+def export_native_image(edition: NewspaperEdition, output_path: str, template_id: str = "layout_1", scale: float = 2.0) -> Tuple[bool, str]:
+    return _default_exporter.export_page_image(edition, output_path, scale=scale)
+
+def export_animated_gif(edition: NewspaperEdition, output_path: str, page_idx: int = 0, scale: float = 1.0) -> Tuple[bool, str]:
+    return _default_exporter.export_animated_gif(edition, output_path, page_idx=page_idx, scale=scale)

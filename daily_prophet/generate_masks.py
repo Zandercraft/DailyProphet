@@ -2,36 +2,30 @@
 Exclusively supports authentic Vintage Wizarding Newspaper Layouts.
 """
 import os
-import shutil
-import json
-from typing import Dict, Any, Optional
+from typing import Dict, Optional
 from PIL import Image, ImageDraw, ImageFont
 
 from .template_package import (
     load_all_installed_templates,
     save_installed_template,
-    restore_template_from_shipped_or_backup,
-    delete_installed_template,
-    INSTALLED_TEMPLATES_DIR,
-    SHIPPED_TEMPLATES_DIR
+    restore_template_from_shipped_or_backup
 )
 
 from .layout_models import SlotType
 
 MASKS_DIR = os.path.join("assets", "templates", "masks")
-GLOBAL_LAYOUTS_FILE = os.path.join("assets", "templates", "layout_definitions.json")
 
 # Unified color mappings derived directly from the SlotType enum
 SLOT_COLORS = {s.value: s.mask_fill for s in SlotType}
 OUTLINE_COLORS = {s.value: s.mask_outline for s in SlotType}
 
 
-def load_layout_definitions(defs_path: Optional[str] = None, base_dir: str = ".") -> Dict[str, Any]:
+def load_layout_definitions(defs_path: Optional[str] = None, base_dir: str = ".") -> Dict[str, Dict[str, object]]:
     """Loads all layout definitions directly from installed .prophettemplate packages."""
     return load_all_installed_templates(base_dir=base_dir)
 
 
-def save_global_layout_definitions(layouts: Dict[str, Any], defs_path: Optional[str] = None, base_dir: str = ".") -> bool:
+def save_global_layout_definitions(layouts: Dict[str, Dict[str, object]], defs_path: Optional[str] = None, base_dir: str = ".") -> bool:
     """Saves layout definitions to individual .prophettemplate files (one layout per file).
     Creates a .bak backup file for each modified template upon first edit.
     """
@@ -47,7 +41,7 @@ def save_global_layout_definitions(layouts: Dict[str, Any], defs_path: Optional[
     return success
 
 
-def restore_factory_templates(defs_path: Optional[str] = None, base_dir: str = ".") -> Dict[str, Any]:
+def restore_factory_templates(defs_path: Optional[str] = None, base_dir: str = ".") -> Dict[str, Dict[str, object]]:
     """Restores global template definitions from bundled source code .prophettemplate files."""
     for i in range(1, 10):
         restore_template_from_shipped_or_backup(f"layout_{i}", base_dir=base_dir)
@@ -57,7 +51,7 @@ def restore_factory_templates(defs_path: Optional[str] = None, base_dir: str = "
 
 def generate_wireframe_mask_for_layout(
     layout_key: str,
-    layout_data: Dict[str, Any],
+    layout_data: Dict[str, object],
     masks_dir: Optional[str] = None,
     base_dir: str = "."
 ) -> Optional[str]:

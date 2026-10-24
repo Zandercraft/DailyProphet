@@ -3,7 +3,6 @@ import cv2
 import numpy as np
 import json
 import os
-from PIL import Image
 
 def analyze_template_structure(img_path):
     img = cv2.imread(img_path)

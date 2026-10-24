@@ -13,8 +13,7 @@ from daily_prophet.versioning import (
     CURRENT_PROJECT_VERSION,
     CURRENT_TEMPLATE_VERSION
 )
-from daily_prophet.models import NewspaperEdition, Story
-from daily_prophet.template_package import is_layout_modified, load_all_installed_templates, delete_installed_template
+from daily_prophet.template_package import load_all_installed_templates, delete_installed_template
 
 
 class TestOOPArchitectureAndV10(unittest.TestCase):

@@ -2,7 +2,6 @@
 import os
 import json
 from PIL import Image, ImageDraw, ImageFont
-from daily_prophet.models import NewspaperEdition, Story, StoryPriority
 from daily_prophet.sample_data import get_original_hogwarts_edition
 
 def test_slot_render():

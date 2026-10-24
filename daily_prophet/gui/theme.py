@@ -5,9 +5,7 @@ aged-parchment aesthetic of the Template Editor combined with the classic
 masthead typography of the Daily Prophet newspaper.
 """
 from __future__ import annotations
-import os
-from dataclasses import dataclass
-from typing import Optional, Tuple, Dict, Any
+from typing import Optional, Tuple, Dict
 import customtkinter as ctk
 from PIL import Image
 
@@ -131,7 +129,7 @@ class Theme:
 # ---------------------------------------------------------------------------
 class IconManager:
     """Manages vector icon generation from tkinter-icons packs.
-    
+
     Supports 'lucide', 'material', and 'rpg-awesome'.
     Automatically converts rendered glyphs into ctk.CTkImage objects.
     """
@@ -148,19 +146,19 @@ class IconManager:
         cls._checked_modules = True
         try:
             from tkinter_icons import LucideIcon
-            cls._has_lucide = True
+            cls._has_lucide = bool(LucideIcon)
         except ImportError:
             cls._has_lucide = False
 
         try:
             from tkinter_icons import MaterialIcon
-            cls._has_material = True
+            cls._has_material = bool(MaterialIcon)
         except ImportError:
             cls._has_material = False
 
         try:
             from tkinter_icons import RpgAwesomeIcon
-            cls._has_rpg = True
+            cls._has_rpg = bool(RpgAwesomeIcon)
         except ImportError:
             cls._has_rpg = False
 

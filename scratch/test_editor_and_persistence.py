@@ -4,7 +4,6 @@ global template saving with .bak auto-backup, and custom template management.
 import os
 import sys
 import json
-import shutil
 
 # Ensure project root is in sys.path
 sys.path.insert(0, os.path.abspath("."))
@@ -14,10 +13,7 @@ from daily_prophet.generate_masks import (
     load_layout_definitions,
     save_global_layout_definitions,
     generate_wireframe_mask_for_layout,
-    restore_factory_templates,
-    SHIPPED_DEFAULTS_FILE,
-    GLOBAL_LAYOUTS_FILE,
-    GLOBAL_BACKUP_FILE
+    SHIPPED_DEFAULTS_FILE
 )
 from daily_prophet.native_renderer import NativeBroadsheetRenderer
 

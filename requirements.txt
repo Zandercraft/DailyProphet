@@ -1,10 +1,10 @@
 customtkinter ~= 6.0.0
 Pillow ~= 13.0.0
-jinja2 ~= 3.1.6
-pywebview ~= 6.2.1
 numpy ~= 2.5.4
 pytesseract~=0.3.13
 opencv-python~=5.0.0.93
 rembg[cpu]~=2.0.86
 onnxruntime~=1.31.0
 tkinter-icons[lucide,material,rpg-awesome]~=5.1.0
+poethepoet ~= 0.49.0
+ruff ~= 0.17.2

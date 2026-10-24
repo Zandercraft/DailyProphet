@@ -2,18 +2,14 @@ import os
 import sys
 import json
 import zipfile
-import shutil
 
 sys.path.insert(0, os.path.abspath("."))
 
 from daily_prophet.models import NewspaperEdition, Story
 from daily_prophet.template_package import (
     load_all_installed_templates,
-    load_template_package,
     delete_installed_template,
-    is_layout_modified,
-    SHIPPED_TEMPLATES_DIR,
-    INSTALLED_TEMPLATES_DIR
+    is_layout_modified
 )
 from daily_prophet.gui.layout_editor_window import LayoutEditorWindow
 

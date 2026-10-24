@@ -12,10 +12,9 @@ Supports:
 """
 import os
 import shutil
-import json
 import copy
 import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
+from tkinter import messagebox, filedialog
 import customtkinter as ctk
 from PIL import Image, ImageTk
 
@@ -23,22 +22,19 @@ from ..generate_masks import (
     load_layout_definitions,
     save_global_layout_definitions,
     generate_wireframe_mask_for_layout,
-    restore_factory_templates,
-    build_all_layouts
+    restore_factory_templates
 )
 from ..template_package import (
     create_template_package,
     load_template_package,
-    load_all_installed_templates,
     save_installed_template,
     delete_installed_template,
-    restore_template_from_shipped_or_backup,
     is_layout_modified,
     INSTALLED_TEMPLATES_DIR,
-    SHIPPED_TEMPLATES_DIR
+    CURRENT_TEMPLATE_VERSION
 )
 
-from ..layout_models import SlotType, LayoutStatus, LayoutSlot, LayoutDefinition
+from ..layout_models import SlotType, LayoutStatus
 from .theme import Theme, IconManager
 
 # Color palettes dynamically mapped from SlotType enumeration

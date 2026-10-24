@@ -6,9 +6,8 @@ import json
 import os
 import zipfile
 import copy
-from typing import List, Optional, Dict, Any
+from typing import List, Dict
 from .versioning import FormatVersion, CURRENT_PROJECT_VERSION, project_migration_pipeline
-from .layout_models import SlotType, LayoutSlot, LayoutDefinition, LayoutStatus
 
 
 class StoryPriority(str, Enum):
@@ -23,7 +22,7 @@ class StoryPriority(str, Enum):
         return [p.value for p in cls]
 
     @classmethod
-    def from_string(cls, val: Any) -> "StoryPriority":
+    def from_string(cls, val: object) -> "StoryPriority":
         if isinstance(val, StoryPriority):
             return val
         s_val = str(val).strip()
@@ -44,7 +43,7 @@ class ImageAlign(str, Enum):
         return [m.value for m in cls]
 
     @classmethod
-    def from_string(cls, val: Any) -> "ImageAlign":
+    def from_string(cls, val: object) -> "ImageAlign":
         if isinstance(val, ImageAlign):
             return val
         s_val = str(val).lower().strip()
@@ -68,7 +67,7 @@ class BoxStyle(str, Enum):
         return [m.value for m in cls]
 
     @classmethod
-    def from_string(cls, val: Any) -> "BoxStyle":
+    def from_string(cls, val: object) -> "BoxStyle":
         if isinstance(val, BoxStyle):
             return val
         s_val = str(val).lower().strip()
@@ -90,7 +89,7 @@ class PaperTheme(str, Enum):
         return [m.value for m in cls]
 
     @classmethod
-    def from_string(cls, val: Any) -> "PaperTheme":
+    def from_string(cls, val: object) -> "PaperTheme":
         if isinstance(val, PaperTheme):
             return val
         s_val = str(val).lower().strip()
@@ -111,7 +110,7 @@ class BorderStyle(str, Enum):
         return [m.value for m in cls]
 
     @classmethod
-    def from_string(cls, val: Any) -> "BorderStyle":
+    def from_string(cls, val: object) -> "BorderStyle":
         if isinstance(val, BorderStyle):
             return val
         s_val = str(val).lower().strip()
@@ -173,6 +172,32 @@ class Story:
 
 
 @dataclass
+class NewspaperPage:
+    page_id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
+    page_number: int = 1
+    title: str = "Front Page"
+    layout_id: str = "layout_1"
+    stories: List[Story] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, object]:
+        return {
+            "page_id": self.page_id,
+            "page_number": self.page_number,
+            "title": self.title,
+            "layout_id": self.layout_id,
+            "stories": [s.to_dict() for s in self.stories]
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "NewspaperPage":
+        stories_data = data.get("stories", [])
+        stories = [Story.from_dict(s) for s in stories_data]
+        valid_keys = {f.name for f in cls.__dataclass_fields__.values()}
+        filtered = {k: v for k, v in data.items() if k in valid_keys and k != "stories"}
+        return cls(stories=stories, **filtered)
+
+
+@dataclass
 class NewspaperEdition:
     paper_title: str = "The Daily Prophet"
     tagline: str = "THE WIZARDING WORLD'S MOST TRUSTED SOURCE OF NEWS"
@@ -197,28 +222,118 @@ class NewspaperEdition:
     lore_title_2: str = "DID YOU KNOW? HOGWARTS LORE"
     lore_body_2: str = "The castle's grand staircases move according to an ancient harmonic enchantment placed by Rowena Ravenclaw herself. Exactly one hundred and forty-two flights of stairs connect the towers to the dungeons."
     stories: List[Story] = field(default_factory=list)
+    pages: List[NewspaperPage] = field(default_factory=list)
     selected_layout: str = "layout_1"
     custom_layouts: dict = field(default_factory=dict)
     format_version: str = str(CURRENT_PROJECT_VERSION)
 
+    def __post_init__(self):
+        if not self.pages:
+            self.pages = [
+                NewspaperPage(
+                    page_id="page_1",
+                    page_number=1,
+                    title="Front Page",
+                    layout_id=self.selected_layout or "layout_1",
+                    stories=list(self.stories)
+                )
+            ]
+        elif not self.stories and self.pages:
+            self.stories = self.all_stories()
+
+    def all_stories(self) -> List[Story]:
+        """Returns all stories compiled across all pages."""
+        all_s = []
+        for p in self.pages:
+            all_s.extend(p.stories)
+        return all_s
+
+    def get_page(self, index: int) -> NewspaperPage:
+        """Retrieves page by zero-based index with boundary clamping."""
+        if not self.pages:
+            self.__post_init__()
+        safe_idx = max(0, min(index, len(self.pages) - 1))
+        return self.pages[safe_idx]
+
+    def add_page(self, title: str = "", layout_id: str = "layout_2") -> NewspaperPage:
+        """Adds a new page to the publication."""
+        next_num = len(self.pages) + 1
+        page_title = title or f"Page {next_num}"
+        new_page = NewspaperPage(
+            page_id=f"page_{next_num}_{str(uuid.uuid4())[:4]}",
+            page_number=next_num,
+            title=page_title,
+            layout_id=layout_id,
+            stories=[]
+        )
+        self.pages.append(new_page)
+        return new_page
+
+    def remove_page(self, index: int) -> bool:
+        """Removes a page by index, ensuring at least one page always remains."""
+        if len(self.pages) <= 1 or index < 0 or index >= len(self.pages):
+            return False
+        self.pages.pop(index)
+        for idx, page in enumerate(self.pages, 1):
+            page.page_number = idx
+        self.stories = self.all_stories()
+        return True
+
+    def move_story(self, story_id: str, from_page_idx: int, to_page_idx: int) -> bool:
+        """Moves a story from one page to another."""
+        if from_page_idx == to_page_idx or from_page_idx >= len(self.pages) or to_page_idx >= len(self.pages):
+            return False
+        from_page = self.pages[from_page_idx]
+        to_page = self.pages[to_page_idx]
+        found = None
+        for s in from_page.stories:
+            if s.id == story_id:
+                found = s
+                break
+        if found:
+            from_page.stories.remove(found)
+            to_page.stories.append(found)
+            self.stories = self.all_stories()
+            return True
+        return False
+
     def to_dict(self):
         d = asdict(self)
-        d["stories"] = [s.to_dict() for s in self.stories]
+        d["pages"] = [p.to_dict() for p in self.pages]
+        d["stories"] = [s.to_dict() for s in self.all_stories()]
         d["theme"] = self.theme.value if isinstance(self.theme, PaperTheme) else str(self.theme)
         d["border_style"] = self.border_style.value if isinstance(self.border_style, BorderStyle) else str(self.border_style)
         return d
 
     @classmethod
     def from_dict(cls, data: dict) -> "NewspaperEdition":
-        stories_data = data.get("stories", [])
-        stories = [Story.from_dict(s) for s in stories_data]
+        pages_data = data.get("pages", [])
+        if pages_data:
+            pages = [NewspaperPage.from_dict(p) for p in pages_data]
+            all_s = []
+            for p in pages:
+                all_s.extend(p.stories)
+            stories = all_s
+        else:
+            stories_data = data.get("stories", [])
+            stories = [Story.from_dict(s) for s in stories_data]
+            pages = [
+                NewspaperPage(
+                    page_id="page_1",
+                    page_number=1,
+                    title="Front Page",
+                    layout_id=data.get("selected_layout", "layout_1"),
+                    stories=stories
+                )
+            ]
+
         valid_keys = {f.name for f in cls.__dataclass_fields__.values()}
-        filtered = {k: v for k, v in data.items() if k in valid_keys and k != "stories"}
+        filtered = {k: v for k, v in data.items() if k in valid_keys and k not in ("stories", "pages")}
         if "theme" in filtered:
             filtered["theme"] = PaperTheme.from_string(filtered["theme"])
         if "border_style" in filtered:
             filtered["border_style"] = BorderStyle.from_string(filtered["border_style"])
-        return cls(stories=stories, **filtered)
+        return cls(stories=stories, pages=pages, **filtered)
 
     def save_to_file(self, file_path: str):
         """Saves edition metadata as raw JSON."""
@@ -334,7 +449,7 @@ class NewspaperEdition:
             if manifest:
                 raw_ver = manifest.get("format_version") or manifest.get("version", "1.0")
             source_ver = FormatVersion.parse(raw_ver)
-            migrated_data, was_upgraded, orig_ver = project_migration_pipeline.migrate(edition_data, source_ver)
+            migrated_data, _, _ = project_migration_pipeline.migrate(edition_data, source_ver)
 
             edition = cls.from_dict(migrated_data)
             edition.format_version = str(CURRENT_PROJECT_VERSION)

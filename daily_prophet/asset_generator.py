@@ -2,7 +2,7 @@
 import os
 import math
 import random
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
+from PIL import Image, ImageDraw
 
 
 def create_sample_assets(output_dir: str):

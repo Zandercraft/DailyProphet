@@ -2,26 +2,24 @@
 from __future__ import annotations
 import sys
 import os
-import tkinter as tk
 from tkinter import filedialog, messagebox
 import customtkinter as ctk
 from PIL import Image
 
-from typing import List, Optional
-from ..models import NewspaperEdition, Story, StoryPriority, PaperTheme, BorderStyle, ExportFormat, LayoutStatus
-from ..sample_data import get_original_hogwarts_edition, get_azkaban_edition, get_sample_edition
-from ..template_engine import generate_newspaper_html
-from ..pdf_exporter import export_html_to_pdf, export_html_to_image
-from ..native_renderer import export_native_image, export_native_pdf, NativeBroadsheetRenderer
-from .story_dialog import StoryDialog
-from .preview_window import open_webview_window, open_in_browser, save_temp_preview, open_image_preview
+from typing import Optional, Dict
+from ..models import NewspaperEdition, Story, StoryPriority, PaperTheme
+from ..sample_data import get_original_hogwarts_edition, get_azkaban_edition
+from ..pdf_exporter import PublicationExporter
 from .layout_editor_window import LayoutEditorWindow
+from .preview_canvas import BroadsheetPreviewCanvas, PreviewToplevelWindow
+from .story_composer import StoryComposer
 from .theme import Theme, IconManager
 from ..generate_masks import load_layout_definitions
-from ..versioning import ProjectMigrator, CURRENT_PROJECT_VERSION
 
 
 class MainWindow(ctk.CTk):
+    """Word-inspired, multi-pane publication workspace for The Daily Prophet."""
+
     def __init__(self):
         super().__init__()
 
@@ -30,10 +28,10 @@ class MainWindow(ctk.CTk):
         ctk.set_default_color_theme("dark-blue")
 
         self.title("The Daily Prophet - Newspaper Generator")
-        self.geometry("1180x820")
-        self.minsize(1020, 720)
+        self.geometry("1320x860")
+        self.minsize(1080, 720)
 
-        # Ensure Windows AppUserModelID is registered for taskbar icon
+        # Register Windows AppUserModelID for taskbar icon
         if sys.platform == "win32":
             try:
                 import ctypes
@@ -53,340 +51,347 @@ class MainWindow(ctk.CTk):
             if sys.platform == "win32":
                 self.after(200, self._apply_win32_icon)
 
-        # Active edition state
+        # Active state
         self.base_dir = os.path.abspath(".")
         self.current_project_path = None
         self.edition = get_original_hogwarts_edition(".")
+        self.current_page_idx = 0
+        self.selected_story_id: Optional[str] = None
+        self.story_item_frames: Dict[str, ctk.CTkFrame] = {}
+
+        self.exporter = PublicationExporter(self.base_dir)
+        self.floating_preview_win: Optional[PreviewToplevelWindow] = None
 
         self._setup_ui()
         self._load_edition_into_ui()
 
     def _setup_ui(self):
-        # 1. TOP MASTHEAD TOOLBAR
-        top_bar = ctk.CTkFrame(self, fg_color=Theme.HEADER_BG, corner_radius=0, height=65)
+        self._setup_top_ribbon()
+
+        # Main Tabview (Workspace vs Edition Settings)
+        self.tabview = ctk.CTkTabview(
+            self,
+            corner_radius=8,
+            fg_color=Theme.PANEL_BG,
+            segmented_button_fg_color=Theme.HEADER_BG,
+            segmented_button_selected_color=Theme.BTN_PRIMARY[0],
+            segmented_button_selected_hover_color=Theme.BTN_PRIMARY[1],
+            segmented_button_unselected_color=Theme.HEADER_BG,
+            segmented_button_unselected_hover_color="#3a3027",
+            text_color=Theme.TEXT_PARCHMENT,
+        )
+        self.tabview._segmented_button.configure(border_width=0)
+        self.tabview.pack(fill="both", expand=True, padx=14, pady=(6, 4))
+
+        self.tab_stories = self.tabview.add("Stories & Live Workspace")
+        self.tab_settings = self.tabview.add("Newspaper Header & Settings")
+
+        self._setup_workspace_tab()
+        self._setup_settings_tab()
+        self._setup_bottom_bar()
+
+    def _setup_top_ribbon(self):
+        top_bar = ctk.CTkFrame(self, fg_color=Theme.HEADER_BG, corner_radius=0, height=60)
         top_bar.pack(fill="x", padx=0, pady=0)
 
         title_box = ctk.CTkFrame(top_bar, fg_color="transparent")
-        title_box.pack(side="left", padx=20, pady=10)
+        title_box.pack(side="left", padx=16, pady=8)
 
-        # Brand Logo in top bar
         if os.path.exists(self.icon_png):
             try:
                 logo_pil = Image.open(self.icon_png)
-                self.brand_logo_img = ctk.CTkImage(light_image=logo_pil, dark_image=logo_pil, size=(46, 46))
-                logo_lbl = ctk.CTkLabel(title_box, image=self.brand_logo_img, text="")
-                logo_lbl.pack(side="left", padx=(0, 10))
+                self.brand_logo_img = ctk.CTkImage(light_image=logo_pil, dark_image=logo_pil, size=(42, 42))
+                ctk.CTkLabel(title_box, image=self.brand_logo_img, text="").pack(side="left", padx=(0, 8))
             except Exception:
                 pass
 
         titles_text_box = ctk.CTkFrame(title_box, fg_color="transparent")
-        titles_text_box.pack(side="left", fill="y")
+        titles_text_box.pack(side="left")
 
-        app_title = ctk.CTkLabel(
+        ctk.CTkLabel(
             titles_text_box,
             text="THE DAILY PROPHET",
-            font=ctk.CTkFont(family="Georgia", size=20, weight="bold"),
+            font=ctk.CTkFont(family="Georgia", size=18, weight="bold"),
             text_color=Theme.TEXT_PARCHMENT,
-        )
-        app_title.pack(anchor="w")
+        ).pack(anchor="w")
 
-        app_sub = ctk.CTkLabel(
+        ctk.CTkLabel(
             titles_text_box,
             text="Wizarding Broadsheet Generator & Layout Publisher",
-            font=ctk.CTkFont(family="Georgia", size=11, slant="italic"),
+            font=ctk.CTkFont(family="Georgia", size=10, slant="italic"),
             text_color=Theme.TEXT_MUTED,
-        )
-        app_sub.pack(anchor="w")
+        ).pack(anchor="w")
 
-        # Top Project Buttons
+        # Command Buttons on Right
         top_btns = ctk.CTkFrame(top_bar, fg_color="transparent")
-        top_btns.pack(side="right", padx=20, pady=12)
+        top_btns.pack(side="right", padx=16, pady=10)
 
         ctk.CTkButton(
             top_btns,
             text=" Hogwarts Issue",
-            image=IconManager.get_icon("scroll-unfurled", size=14, pack="rpg"),
+            image=IconManager.get_icon("scroll-unfurled", size=13, pack="rpg"),
             compound="left",
-            width=135,
+            width=125,
             fg_color=Theme.BTN_PRIMARY[0],
             hover_color=Theme.BTN_PRIMARY[1],
             command=self._load_hogwarts_original,
-        ).pack(side="left", padx=3)
+        ).pack(side="left", padx=2)
 
         ctk.CTkButton(
             top_btns,
             text=" Azkaban Edition",
-            image=IconManager.get_icon("skull", size=14, pack="rpg"),
+            image=IconManager.get_icon("skull", size=13, pack="rpg"),
             compound="left",
-            width=135,
+            width=125,
             fg_color=Theme.BTN_SECONDARY[0],
             hover_color=Theme.BTN_SECONDARY[1],
             command=self._load_azkaban_sample,
-        ).pack(side="left", padx=3)
+        ).pack(side="left", padx=2)
 
         ctk.CTkButton(
             top_btns,
             text=" Open...",
             image=IconManager.get_icon("folder-open", size=13),
             compound="left",
-            width=85,
+            width=80,
             fg_color=Theme.BTN_NEUTRAL[0],
             hover_color=Theme.BTN_NEUTRAL[1],
             command=self._open_project,
-        ).pack(side="left", padx=3)
+        ).pack(side="left", padx=2)
 
         ctk.CTkButton(
             top_btns,
             text=" Save",
             image=IconManager.get_icon("save", size=13),
             compound="left",
-            width=75,
+            width=70,
             fg_color=Theme.BTN_SECONDARY[0],
             hover_color=Theme.BTN_SECONDARY[1],
             command=self._save_project,
-        ).pack(side="left", padx=3)
+        ).pack(side="left", padx=2)
 
         ctk.CTkButton(
             top_btns,
             text=" Save As...",
             image=IconManager.get_icon("save", size=13),
             compound="left",
-            width=95,
+            width=90,
             fg_color=Theme.BTN_SECONDARY[0],
             hover_color=Theme.BTN_SECONDARY[1],
             command=self._save_as_project,
-        ).pack(side="left", padx=3)
+        ).pack(side="left", padx=2)
 
         ctk.CTkButton(
             top_btns,
             text=" New",
             image=IconManager.get_icon("plus", size=13),
             compound="left",
-            width=70,
+            width=65,
             fg_color=Theme.BTN_NEUTRAL[0],
             hover_color=Theme.BTN_NEUTRAL[1],
             command=self._new_project,
-        ).pack(side="left", padx=3)
+        ).pack(side="left", padx=2)
 
-        # 2. MAIN TABVIEW (STORIES vs EDITION SETTINGS)
-        self.tabview = ctk.CTkTabview(self, corner_radius=8)
-        self.tabview.pack(fill="both", expand=True, padx=16, pady=(10, 6))
+    def _setup_workspace_tab(self):
+        parent = self.tab_stories
 
-        self.tab_stories = self.tabview.add("Stories & Layout")
-        self.tab_settings = self.tabview.add("Newspaper Header & Settings")
+        # Page Ribbon Strip
+        self.page_ribbon = ctk.CTkFrame(parent, fg_color=Theme.HEADER_BG, height=38, corner_radius=6)
+        self.page_ribbon.pack(fill="x", padx=4, pady=(4, 6))
 
-        self._setup_stories_tab()
-        self._setup_settings_tab()
+        self.pages_tabs_frame = ctk.CTkFrame(self.page_ribbon, fg_color="transparent")
+        self.pages_tabs_frame.pack(side="left", padx=6, pady=4)
 
-        # 2.5 LAYOUT TEMPLATE SELECTOR & WIREFRAME BAR
-        layout_bar = ctk.CTkFrame(self, fg_color=("#26201a", "#16120e"), corner_radius=0, height=44)
-        layout_bar.pack(fill="x", padx=0, pady=(0, 2))
-
-        ctk.CTkLabel(
-            layout_bar,
-            text="📐 Layout Template:",
-            font=ctk.CTkFont(family="Georgia", size=12, weight="bold"),
-            text_color="#f5ede0",
-        ).pack(side="left", padx=(20, 8), pady=8)
-
-        self.layout_map = {}
-        self.layout_meta = {}
-
-        self.template_selector = ctk.CTkOptionMenu(
-            layout_bar,
-            values=["Layout 1: Broadsheet Lead & Gazette"],
-            width=330,
-            fg_color="#3d342a",
-            button_color="#54483a",
-            button_hover_color="#6e5e4c",
-            dropdown_fg_color="#2b231c",
-            command=self._on_layout_changed
-        )
-        self.template_selector.pack(side="left", padx=4, pady=8)
+        # Page action controls on right of ribbon
+        page_ctrls = ctk.CTkFrame(self.page_ribbon, fg_color="transparent")
+        page_ctrls.pack(side="right", padx=6, pady=4)
 
         ctk.CTkButton(
-            layout_bar,
-            text=" View Mask",
-            image=IconManager.get_icon("eye", size=14),
+            page_ctrls,
+            text=" Add Page",
+            image=IconManager.get_icon("plus", size=12),
             compound="left",
-            width=120,
-            fg_color=Theme.BTN_SECONDARY[0],
-            hover_color=Theme.BTN_SECONDARY[1],
-            command=self._view_wireframe_mask
-        ).pack(side="left", padx=6, pady=8)
-
-        ctk.CTkButton(
-            layout_bar,
-            text=" Edit Layout Slots",
-            image=IconManager.get_icon("pencil", size=14),
-            compound="left",
-            width=150,
+            width=90,
+            height=26,
+            font=ctk.CTkFont(size=10, weight="bold"),
             fg_color=Theme.BTN_SUCCESS[0],
             hover_color=Theme.BTN_SUCCESS[1],
-            command=self._open_layout_editor
-        ).pack(side="left", padx=4, pady=8)
+            command=self._add_new_page
+        ).pack(side="left", padx=2)
 
-        self.layout_info_lbl = ctk.CTkLabel(
-            layout_bar,
-            text="1122x1402 Broadsheet • 18 Content Slots",
-            font=ctk.CTkFont(size=11, slant="italic"),
-            text_color="#c2b6a4"
+        self.del_page_btn = ctk.CTkButton(
+            page_ctrls,
+            text=" Delete Page",
+            image=IconManager.get_icon("trash-2", size=12),
+            compound="left",
+            width=95,
+            height=26,
+            font=ctk.CTkFont(size=10),
+            fg_color=Theme.BTN_DANGER[0],
+            hover_color=Theme.BTN_DANGER[1],
+            command=self._delete_current_page
         )
-        self.layout_info_lbl.pack(side="right", padx=20, pady=8)
+        self.del_page_btn.pack(side="left", padx=2)
 
-        # Initialize layout options dynamically from layout definitions
-        self._refresh_layout_options()
+        # Layout Template Picker
+        layout_box = ctk.CTkFrame(self.page_ribbon, fg_color="transparent")
+        layout_box.pack(side="left", padx=16, pady=4)
 
-        # 3. BOTTOM ACTION BAR (PREVIEW, PDF & IMAGE EXPORT)
-        bottom_bar = ctk.CTkFrame(self, fg_color=("#2e261f", "#1c1713"), corner_radius=0, height=62)
-        bottom_bar.pack(fill="x", padx=0, pady=0)
+        ctk.CTkLabel(
+            layout_box,
+            text=" Layout:",
+            image=IconManager.get_icon("layout-grid", size=13),
+            compound="left",
+            font=ctk.CTkFont(family="Georgia", size=11, weight="bold"),
+            text_color=Theme.TEXT_PARCHMENT
+        ).pack(side="left", padx=(0, 4))
 
-        # Status text on the left
-        self.status_lbl = ctk.CTkLabel(
-            bottom_bar,
-            text="Ready. Layout 1 loaded.",
-            font=ctk.CTkFont(size=12),
-            text_color="#c2b6a4",
+        self.layout_map: Dict[str, str] = {}
+        self.layout_meta: Dict[str, Dict[str, object]] = {}
+        self.template_selector = ctk.CTkOptionMenu(
+            layout_box,
+            values=["Layout 1: Broadsheet Lead & Gazette"],
+            width=240,
+            height=26,
+            font=ctk.CTkFont(size=10),
+            fg_color=Theme.BTN_SECONDARY[0],
+            button_color=Theme.BTN_SECONDARY[1],
+            command=self._on_layout_template_changed
         )
-        self.status_lbl.pack(side="left", padx=20, pady=12)
-
-        # Action buttons on the right: PDF and IMAGE are prioritized
-        action_btns = ctk.CTkFrame(bottom_bar, fg_color="transparent")
-        action_btns.pack(side="right", padx=20, pady=10)
+        self.template_selector.pack(side="left", padx=2)
 
         ctk.CTkButton(
-            action_btns,
-            text=" Preview Publication",
-            image=IconManager.get_icon("eye", size=16),
+            layout_box,
+            text=" Slots",
+            image=IconManager.get_icon("pencil", size=12),
             compound="left",
-            width=175,
-            height=36,
-            font=ctk.CTkFont(size=13, weight="bold"),
+            width=70,
+            height=26,
+            font=ctk.CTkFont(size=10),
+            fg_color=Theme.BTN_NEUTRAL[0],
+            hover_color=Theme.BTN_NEUTRAL[1],
+            command=self._open_layout_editor
+        ).pack(side="left", padx=2)
+
+        # Three-Pane Workspace
+        self.workspace = ctk.CTkFrame(parent, fg_color="transparent")
+        self.workspace.pack(fill="both", expand=True, padx=2, pady=2)
+
+        # 1. LEFT PANE: Stories Navigator
+        self.left_pane = ctk.CTkFrame(self.workspace, width=270, fg_color=Theme.PANEL_BG)
+        self.left_pane.pack(side="left", fill="both", expand=False, padx=(0, 4))
+        self.left_pane.pack_propagate(False)
+
+        nav_header = ctk.CTkFrame(self.left_pane, fg_color="transparent")
+        nav_header.pack(fill="x", padx=10, pady=(8, 4))
+
+        self.page_stories_lbl = ctk.CTkLabel(
+            nav_header,
+            text="Page Stories:",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color=Theme.TEXT_PARCHMENT
+        )
+        self.page_stories_lbl.pack(side="left")
+
+        ctk.CTkButton(
+            nav_header,
+            text=" Add",
+            image=IconManager.get_icon("plus", size=12),
+            compound="left",
+            width=65,
+            height=24,
+            font=ctk.CTkFont(size=10, weight="bold"),
             fg_color=Theme.BTN_PRIMARY[0],
             hover_color=Theme.BTN_PRIMARY[1],
-            command=self._preview_newspaper,
-        ).pack(side="left", padx=6)
+            command=self._add_story
+        ).pack(side="right")
+
+        self.stories_scroll = ctk.CTkScrollableFrame(self.left_pane, fg_color="transparent")
+        self.stories_scroll.pack(fill="both", expand=True, padx=6, pady=4)
+
+        # Story Reorder / Move toolbar below list
+        nav_tools = ctk.CTkFrame(self.left_pane, fg_color="transparent")
+        nav_tools.pack(fill="x", padx=6, pady=(4, 8))
+
+        ctk.CTkButton(nav_tools, text=" Up", image=IconManager.get_icon("arrow-up", size=11), compound="left", width=55, height=24, font=ctk.CTkFont(size=10), fg_color=Theme.BTN_CONTROL[0], hover_color=Theme.BTN_CONTROL[1], command=self._move_story_up).pack(side="left", padx=1)
+        ctk.CTkButton(nav_tools, text=" Down", image=IconManager.get_icon("arrow-down", size=11), compound="left", width=65, height=24, font=ctk.CTkFont(size=10), fg_color=Theme.BTN_CONTROL[0], hover_color=Theme.BTN_CONTROL[1], command=self._move_story_down).pack(side="left", padx=1)
+        ctk.CTkButton(nav_tools, text=" Move...", width=65, height=24, font=ctk.CTkFont(size=10), fg_color=Theme.BTN_SECONDARY[0], hover_color=Theme.BTN_SECONDARY[1], command=self._move_story_to_page_dialog).pack(side="left", padx=1)
+        ctk.CTkButton(nav_tools, text=" Del", image=IconManager.get_icon("trash-2", size=11), compound="left", width=50, height=24, font=ctk.CTkFont(size=10), fg_color=Theme.BTN_DANGER[0], hover_color=Theme.BTN_DANGER[1], command=self._delete_selected_story).pack(side="right", padx=1)
+
+        # 2. CENTER PANE: Article Composer
+        self.center_composer = StoryComposer(
+            self.workspace,
+            on_story_updated=self._on_composer_story_updated,
+            base_dir=self.base_dir
+        )
+        self.center_composer.pack(side="left", fill="both", expand=True, padx=4)
+
+        # 3. RIGHT PANE: Live Broadsheet Preview Dock
+        self.right_dock = ctk.CTkFrame(self.workspace, width=470, fg_color="transparent")
+        self.right_dock.pack(side="right", fill="both", expand=False, padx=(4, 0))
+        self.right_dock.pack_propagate(False)
+
+        self.preview_canvas = BroadsheetPreviewCanvas(
+            self.right_dock,
+            edition=self.edition,
+            on_slot_clicked=self._on_slot_clicked_on_canvas,
+            on_page_changed=self._on_preview_page_flipped,
+            on_detach_requested=self._toggle_preview_detachment,
+            is_detached=False
+        )
+        self.preview_canvas.pack(fill="both", expand=True)
+
+        self._refresh_layout_options()
+
+    def _setup_bottom_bar(self):
+        bottom_bar = ctk.CTkFrame(self, fg_color=("#2e261f", "#1c1713"), corner_radius=0, height=54)
+        bottom_bar.pack(fill="x", padx=0, pady=0)
+
+        self.status_lbl = ctk.CTkLabel(
+            bottom_bar,
+            text="Ready. Daily Prophet broadsheet loaded.",
+            font=ctk.CTkFont(size=11),
+            text_color="#c2b6a4",
+        )
+        self.status_lbl.pack(side="left", padx=16, pady=10)
+
+        action_btns = ctk.CTkFrame(bottom_bar, fg_color="transparent")
+        action_btns.pack(side="right", padx=16, pady=8)
 
         ctk.CTkButton(
             action_btns,
-            text=" Export PDF",
-            image=IconManager.get_icon("file-text", size=16),
+            text=" Export PDF (Multi-Page)",
+            image=IconManager.get_icon("file-text", size=14),
             compound="left",
-            width=140,
-            height=36,
-            font=ctk.CTkFont(size=12, weight="bold"),
+            width=175,
+            height=32,
+            font=ctk.CTkFont(size=11, weight="bold"),
             fg_color=Theme.BTN_SUCCESS[0],
             hover_color=Theme.BTN_SUCCESS[1],
             command=self._export_pdf,
-        ).pack(side="left", padx=6)
+        ).pack(side="left", padx=4)
 
         ctk.CTkButton(
             action_btns,
-            text=" Export Image",
-            image=IconManager.get_icon("image", size=16),
+            text=" Export Images / GIF",
+            image=IconManager.get_icon("image", size=14),
             compound="left",
-            width=140,
-            height=36,
-            font=ctk.CTkFont(size=12, weight="bold"),
+            width=160,
+            height=32,
+            font=ctk.CTkFont(size=11, weight="bold"),
             fg_color=Theme.BTN_NEUTRAL[0],
             hover_color=Theme.BTN_NEUTRAL[1],
-            command=self._export_image,
-        ).pack(side="left", padx=6)
-
-    def _setup_stories_tab(self):
-        parent = self.tab_stories
-
-        split_frame = ctk.CTkFrame(parent, fg_color="transparent")
-        split_frame.pack(fill="both", expand=True, padx=4, pady=4)
-
-        # LEFT PANE: Stories management
-        left_pane = ctk.CTkFrame(split_frame)
-        left_pane.pack(side="left", fill="both", expand=True, padx=(0, 8), pady=0)
-
-        stories_bar = ctk.CTkFrame(left_pane, fg_color="transparent")
-        stories_bar.pack(fill="x", padx=12, pady=(10, 6))
-
-        ctk.CTkLabel(
-            stories_bar,
-            text="Stories in this Edition:",
-            font=ctk.CTkFont(size=14, weight="bold"),
-        ).pack(side="left")
-
-        ctk.CTkButton(
-            stories_bar,
-            text=" Add Story",
-            image=IconManager.get_icon("plus", size=14),
-            compound="left",
-            width=110,
-            fg_color=Theme.BTN_PRIMARY[0],
-            hover_color=Theme.BTN_PRIMARY[1],
-            command=self._add_story,
-        ).pack(side="right", padx=(6, 0))
-
-        # Stories scrollable list
-        self.stories_scroll = ctk.CTkScrollableFrame(left_pane)
-        self.stories_scroll.pack(fill="both", expand=True, padx=12, pady=6)
-
-        # Ordering / deleting buttons below list
-        list_ctrls = ctk.CTkFrame(left_pane, fg_color="transparent")
-        list_ctrls.pack(fill="x", padx=12, pady=(6, 10))
-
-        ctk.CTkButton(list_ctrls, text=" Up", image=IconManager.get_icon("arrow-up", size=13), compound="left", width=75, fg_color=Theme.BTN_CONTROL[0], hover_color=Theme.BTN_CONTROL[1], command=self._move_story_up).pack(side="left", padx=(0, 4))
-        ctk.CTkButton(list_ctrls, text=" Down", image=IconManager.get_icon("arrow-down", size=13), compound="left", width=80, fg_color=Theme.BTN_CONTROL[0], hover_color=Theme.BTN_CONTROL[1], command=self._move_story_down).pack(side="left", padx=4)
-        ctk.CTkButton(list_ctrls, text=" Edit", image=IconManager.get_icon("pencil", size=13), compound="left", width=80, fg_color=Theme.BTN_SECONDARY[0], hover_color=Theme.BTN_SECONDARY[1], command=self._edit_selected_story).pack(side="left", padx=4)
-        ctk.CTkButton(list_ctrls, text=" Delete", image=IconManager.get_icon("trash-2", size=13), compound="left", width=85, fg_color=Theme.BTN_DANGER[0], hover_color=Theme.BTN_DANGER[1], command=self._delete_selected_story).pack(side="right")
-
-        # RIGHT PANE: Story Inspector
-        self.right_pane = ctk.CTkFrame(split_frame, width=380)
-        self.right_pane.pack(side="right", fill="both", expand=False, padx=(8, 0), pady=0)
-        self.right_pane.pack_propagate(False)
-
-        ctk.CTkLabel(
-            self.right_pane,
-            text="Story Inspector",
-            font=ctk.CTkFont(size=14, weight="bold"),
-        ).pack(anchor="w", padx=14, pady=(12, 6))
-
-        self.inspector_scroll = ctk.CTkScrollableFrame(self.right_pane)
-        self.inspector_scroll.pack(fill="both", expand=True, padx=10, pady=(0, 10))
-
-        self.inspect_prio_lbl = ctk.CTkLabel(self.inspector_scroll, text="", font=ctk.CTkFont(size=12, weight="bold"))
-        self.inspect_prio_lbl.pack(anchor="w", padx=6, pady=2)
-
-        self.inspect_title_lbl = ctk.CTkLabel(
-            self.inspector_scroll,
-            text="Select a story on the left to inspect.",
-            font=ctk.CTkFont(family="Georgia", size=15, weight="bold"),
-            wraplength=340,
-            justify="left",
-        )
-        self.inspect_title_lbl.pack(anchor="w", padx=6, pady=(4, 6))
-
-        self.inspect_author_lbl = ctk.CTkLabel(self.inspector_scroll, text="", font=ctk.CTkFont(size=11), text_color="gray70")
-        self.inspect_author_lbl.pack(anchor="w", padx=6, pady=(0, 8))
-
-        self.inspect_photo_preview = ctk.CTkLabel(self.inspector_scroll, text="", height=140)
-        self.inspect_photo_preview.pack(fill="x", padx=6, pady=4)
-
-        self.inspect_caption_lbl = ctk.CTkLabel(self.inspector_scroll, text="", font=ctk.CTkFont(size=11, slant="italic"), wraplength=340, justify="left")
-        self.inspect_caption_lbl.pack(anchor="w", padx=6, pady=2)
-
-        self.inspect_body_lbl = ctk.CTkLabel(self.inspector_scroll, text="", font=ctk.CTkFont(size=12), wraplength=340, justify="left")
-        self.inspect_body_lbl.pack(anchor="w", padx=6, pady=(8, 4))
-
-        self.selected_story_id = None
-        self.story_item_frames = {}
+            command=self._export_images_dialog,
+        ).pack(side="left", padx=4)
 
     def _setup_settings_tab(self):
         parent = self.tab_settings
-
         scroll = ctk.CTkScrollableFrame(parent)
         scroll.pack(fill="both", expand=True, padx=10, pady=10)
 
         # MASTHEAD SECTION
         m_frame = ctk.CTkFrame(scroll)
         m_frame.pack(fill="x", pady=6)
-
         ctk.CTkLabel(m_frame, text="Masthead & Header", font=ctk.CTkFont(size=14, weight="bold")).pack(anchor="w", padx=12, pady=(10, 4))
 
         ctk.CTkLabel(m_frame, text="Newspaper Title:").pack(anchor="w", padx=12, pady=(4, 2))
@@ -404,17 +409,16 @@ class MainWindow(ctk.CTk):
         # DATE, ISSUE & EARS
         meta_row = ctk.CTkFrame(scroll)
         meta_row.pack(fill="x", pady=6)
-
         ctk.CTkLabel(meta_row, text="Ear Boxes & Issue Metadata", font=ctk.CTkFont(size=14, weight="bold")).pack(anchor="w", padx=12, pady=(10, 4))
 
         r1 = ctk.CTkFrame(meta_row, fg_color="transparent")
-        r1.pack(fill="x", padx=12, pady=(0, 6))
+        r1.pack(fill="x", padx=12, pady=(4, 6))
 
         c1 = ctk.CTkFrame(r1, fg_color="transparent")
         c1.pack(side="left", fill="x", expand=True, padx=(0, 6))
-        ctk.CTkLabel(c1, text="Issue Number (Left Ear Top):").pack(anchor="w")
-        self.issue_entry = ctk.CTkEntry(c1)
-        self.issue_entry.pack(fill="x")
+        ctk.CTkLabel(c1, text="Edition Date:").pack(anchor="w")
+        self.date_entry = ctk.CTkEntry(c1)
+        self.date_entry.pack(fill="x")
 
         c2 = ctk.CTkFrame(r1, fg_color="transparent")
         c2.pack(side="left", fill="x", expand=True, padx=6)
@@ -423,60 +427,53 @@ class MainWindow(ctk.CTk):
         self.day_entry.pack(fill="x")
 
         c3 = ctk.CTkFrame(r1, fg_color="transparent")
-        c3.pack(side="right", fill="x", expand=True, padx=(6, 0))
-        ctk.CTkLabel(c3, text="Edition Date:").pack(anchor="w")
-        self.date_entry = ctk.CTkEntry(c3)
-        self.date_entry.pack(fill="x")
+        c3.pack(side="left", fill="x", expand=True, padx=(6, 0))
+        ctk.CTkLabel(c3, text="Issue Number:").pack(anchor="w")
+        self.issue_entry = ctk.CTkEntry(c3)
+        self.issue_entry.pack(fill="x")
 
         r2 = ctk.CTkFrame(meta_row, fg_color="transparent")
-        r2.pack(fill="x", padx=12, pady=(6, 6))
+        r2.pack(fill="x", padx=12, pady=(0, 10))
 
         c4 = ctk.CTkFrame(r2, fg_color="transparent")
         c4.pack(side="left", fill="x", expand=True, padx=(0, 6))
-        ctk.CTkLabel(c4, text="Edition Label (Ear Subhead):").pack(anchor="w")
+        ctk.CTkLabel(c4, text="Edition Label (Upper Left):").pack(anchor="w")
         self.label_entry = ctk.CTkEntry(c4)
         self.label_entry.pack(fill="x")
 
         c5 = ctk.CTkFrame(r2, fg_color="transparent")
         c5.pack(side="left", fill="x", expand=True, padx=6)
-        ctk.CTkLabel(c5, text="Price (e.g. 1 KNUT):").pack(anchor="w")
+        ctk.CTkLabel(c5, text="Price:").pack(anchor="w")
         self.price_entry = ctk.CTkEntry(c5)
         self.price_entry.pack(fill="x")
 
         c6 = ctk.CTkFrame(r2, fg_color="transparent")
-        c6.pack(side="right", fill="x", expand=True, padx=(6, 0))
-        ctk.CTkLabel(c6, text="Castle Weather (Right Ear):").pack(anchor="w")
+        c6.pack(side="left", fill="x", expand=True, padx=(6, 0))
+        ctk.CTkLabel(c6, text="Weather Condition:").pack(anchor="w")
         self.weather_entry = ctk.CTkEntry(c6)
         self.weather_entry.pack(fill="x")
 
-        # EDITORIAL QUOTE & WORDS OF WISDOM
-        quote_frame = ctk.CTkFrame(scroll)
-        quote_frame.pack(fill="x", pady=6)
-
-        ctk.CTkLabel(quote_frame, text="Words of Wisdom / Editorial Quote", font=ctk.CTkFont(size=14, weight="bold")).pack(anchor="w", padx=12, pady=(10, 4))
-
-        q_r = ctk.CTkFrame(quote_frame, fg_color="transparent")
-        q_r.pack(fill="x", padx=12, pady=(4, 10))
-
-        q_c1 = ctk.CTkFrame(q_r, fg_color="transparent")
-        q_c1.pack(side="left", fill="x", expand=True, padx=(0, 8))
-        ctk.CTkLabel(q_c1, text="Quote Text:").pack(anchor="w")
-        self.quote_text_entry = ctk.CTkEntry(q_c1)
-        self.quote_text_entry.pack(fill="x")
-
-        q_c2 = ctk.CTkFrame(q_r, fg_color="transparent")
-        q_c2.pack(side="right", fill="x", padx=(8, 0))
-        ctk.CTkLabel(q_c2, text="Quote Author:").pack(anchor="w")
-        self.quote_author_entry = ctk.CTkEntry(q_c2, width=200)
-        self.quote_author_entry.pack(fill="x")
-
-        # BANNERS & SLOGAN
+        # QUOTES & BANNERS
         banner_frame = ctk.CTkFrame(scroll)
         banner_frame.pack(fill="x", pady=6)
+        ctk.CTkLabel(banner_frame, text="Quotes, Lore & Banners", font=ctk.CTkFont(size=14, weight="bold")).pack(anchor="w", padx=12, pady=(10, 4))
 
-        ctk.CTkLabel(banner_frame, text="Banners & Footer Slogan", font=ctk.CTkFont(size=14, weight="bold")).pack(anchor="w", padx=12, pady=(10, 4))
+        q_row = ctk.CTkFrame(banner_frame, fg_color="transparent")
+        q_row.pack(fill="x", padx=12, pady=(4, 6))
 
-        ctk.CTkLabel(banner_frame, text="Breaking News Banner (Optional, e.g. for emergencies):").pack(anchor="w", padx=12, pady=(4, 2))
+        qc1 = ctk.CTkFrame(q_row, fg_color="transparent")
+        qc1.pack(side="left", fill="x", expand=True, padx=(0, 6))
+        ctk.CTkLabel(qc1, text="Quotation Text:").pack(anchor="w")
+        self.quote_text_entry = ctk.CTkEntry(qc1)
+        self.quote_text_entry.pack(fill="x")
+
+        qc2 = ctk.CTkFrame(q_row, width=220, fg_color="transparent")
+        qc2.pack(side="right", padx=(6, 0))
+        ctk.CTkLabel(qc2, text="Quote Author:").pack(anchor="w")
+        self.quote_author_entry = ctk.CTkEntry(qc2)
+        self.quote_author_entry.pack(fill="x")
+
+        ctk.CTkLabel(banner_frame, text="Breaking Midday News Banner:").pack(anchor="w", padx=12, pady=(4, 2))
         self.breaking_entry = ctk.CTkEntry(banner_frame)
         self.breaking_entry.pack(fill="x", padx=12, pady=(0, 8))
 
@@ -484,35 +481,404 @@ class MainWindow(ctk.CTk):
         self.footer_entry = ctk.CTkEntry(banner_frame)
         self.footer_entry.pack(fill="x", padx=12, pady=(0, 10))
 
-        # VISUAL THEME & MOTION
+        # THEME
         theme_frame = ctk.CTkFrame(scroll)
         theme_frame.pack(fill="x", pady=6)
-
-        ctk.CTkLabel(theme_frame, text="Broadsheet Styling & Magic", font=ctk.CTkFont(size=14, weight="bold")).pack(anchor="w", padx=12, pady=(10, 4))
+        ctk.CTkLabel(theme_frame, text="Broadsheet Styling", font=ctk.CTkFont(size=14, weight="bold")).pack(anchor="w", padx=12, pady=(10, 4))
 
         t_row = ctk.CTkFrame(theme_frame, fg_color="transparent")
         t_row.pack(fill="x", padx=12, pady=(0, 10))
 
         ctk.CTkLabel(t_row, text="Broadsheet Theme:").pack(side="left", padx=(0, 12))
         self.theme_var = ctk.StringVar(value=PaperTheme.ORIGINAL_PROPHET.value)
-        self.theme_menu = ctk.CTkOptionMenu(
+        ctk.CTkOptionMenu(
             t_row,
             variable=self.theme_var,
             values=PaperTheme.choices(),
             width=220,
-        )
-        self.theme_menu.pack(side="left")
+        ).pack(side="left")
 
         self.motion_var = ctk.BooleanVar(value=True)
-        self.motion_check = ctk.CTkCheckBox(
+        ctk.CTkCheckBox(
             theme_frame,
-            text="Enable Magical Photo Motion (Subtle alive portraits in browser)",
+            text="Enable Magical Photo Motion (Support moving portraits in GIF publications)",
             variable=self.motion_var,
+        ).pack(anchor="w", padx=12, pady=(4, 12))
+
+    # -----------------------------------------------------------------------
+    # Multi-Page Navigation and Ribbon Management
+    # -----------------------------------------------------------------------
+    def _refresh_page_tabs(self):
+        for widget in self.pages_tabs_frame.winfo_children():
+            widget.destroy()
+
+        pages = self.edition.pages if hasattr(self.edition, "pages") and self.edition.pages else []
+        if not pages:
+            return
+
+        for idx, page in enumerate(pages):
+            is_active = (idx == self.current_page_idx)
+            btn_fg = Theme.BTN_PRIMARY[0] if is_active else Theme.HEADER_BG
+            btn_hover = Theme.BTN_PRIMARY[1] if is_active else "#3e3227"
+            font_weight = "bold" if is_active else "normal"
+
+            tab_btn = ctk.CTkButton(
+                self.pages_tabs_frame,
+                text=f"Page {page.page_number}: {page.title}",
+                font=ctk.CTkFont(size=10, weight=font_weight),
+                fg_color=btn_fg,
+                hover_color=btn_hover,
+                height=26,
+                command=lambda p_idx=idx: self._on_page_tab_clicked(p_idx)
+            )
+            tab_btn.pack(side="left", padx=2)
+
+        self.del_page_btn.configure(state="normal" if len(pages) > 1 else "disabled")
+        active_page = self.edition.get_page(self.current_page_idx)
+        self.page_stories_lbl.configure(text=f"{active_page.title} Stories:")
+
+        # Update layout dropdown for active page
+        if active_page.layout_id in self.layout_meta:
+            label = [k for k, v in self.layout_map.items() if v == active_page.layout_id]
+            if label:
+                self.template_selector.set(label[0])
+
+    def _on_page_tab_clicked(self, page_idx: int):
+        self.current_page_idx = page_idx
+        self._refresh_page_tabs()
+        self._refresh_stories_list()
+        self.preview_canvas.set_current_page(page_idx)
+        if self.floating_preview_win:
+            self.floating_preview_win.preview_canvas.set_current_page(page_idx)
+
+    def _add_new_page(self):
+        new_page = self.edition.add_page()
+        self.current_page_idx = len(self.edition.pages) - 1
+        self._refresh_page_tabs()
+        self._refresh_stories_list()
+        self._update_preview()
+        self.status_lbl.configure(text=f"Added new {new_page.title} to publication.")
+
+    def _delete_current_page(self):
+        if len(self.edition.pages) <= 1:
+            return
+        if messagebox.askyesno("Delete Page", f"Delete Page {self.current_page_idx + 1} and its assigned stories?", parent=self):
+            self.edition.remove_page(self.current_page_idx)
+            self.current_page_idx = max(0, self.current_page_idx - 1)
+            self._refresh_page_tabs()
+            self._refresh_stories_list()
+            self._update_preview()
+            self.status_lbl.configure(text="Page removed from publication.")
+
+    def _move_story_to_page_dialog(self):
+        if not self.selected_story_id or len(self.edition.pages) <= 1:
+            messagebox.showinfo("Move Story", "Publication only has 1 page. Add a page first.", parent=self)
+            return
+
+        dialog = ctk.CTkToplevel(self)
+        dialog.title("Move Story to Page")
+        dialog.geometry("340x220")
+        dialog.transient(self)
+        dialog.grab_set()
+
+        ctk.CTkLabel(dialog, text="Select Target Page:", font=ctk.CTkFont(size=12, weight="bold")).pack(pady=(16, 8))
+
+        page_options = [f"Page {p.page_number}: {p.title}" for idx, p in enumerate(self.edition.pages) if idx != self.current_page_idx]
+        choice_var = ctk.StringVar(value=page_options[0] if page_options else "")
+        ctk.CTkOptionMenu(dialog, variable=choice_var, values=page_options, width=240).pack(pady=8)
+
+        def _confirm_move():
+            chosen = choice_var.get()
+            target_page_idx = 0
+            for idx, p in enumerate(self.edition.pages):
+                if f"Page {p.page_number}:" in chosen:
+                    target_page_idx = idx
+                    break
+            self.edition.move_story(self.selected_story_id, self.current_page_idx, target_page_idx)
+            dialog.destroy()
+            self._refresh_stories_list()
+            self._update_preview()
+            self.status_lbl.configure(text=f"Moved story to Page {target_page_idx + 1}.")
+
+        ctk.CTkButton(dialog, text="Move Story", fg_color=Theme.BTN_PRIMARY[0], hover_color=Theme.BTN_PRIMARY[1], command=_confirm_move).pack(pady=12)
+
+    # -----------------------------------------------------------------------
+    # Story List & Composer Synchronization
+    # -----------------------------------------------------------------------
+    def _refresh_stories_list(self):
+        for widget in self.stories_scroll.winfo_children():
+            widget.destroy()
+        self.story_item_frames.clear()
+
+        active_page = self.edition.get_page(self.current_page_idx)
+        stories = active_page.stories if active_page else []
+
+        if not stories:
+            ctk.CTkLabel(
+                self.stories_scroll,
+                text="No stories on this page.\nClick 'Add' above or insert lorem ipsum.",
+                font=ctk.CTkFont(size=11),
+                text_color="gray60",
+                justify="center"
+            ).pack(pady=30)
+            self.center_composer.load_story(None)
+            return
+
+        for idx, story in enumerate(stories):
+            card = self._create_story_card(story, idx)
+            card.pack(fill="x", pady=3)
+            self.story_item_frames[story.id] = card
+
+        if self.selected_story_id and any(s.id == self.selected_story_id for s in stories):
+            self._select_story(self.selected_story_id)
+        elif stories:
+            self._select_story(stories[0].id)
+
+    def _create_story_card(self, story: Story, index: int) -> ctk.CTkFrame:
+        prio = story.priority.value if isinstance(story.priority, StoryPriority) else str(story.priority)
+        if prio == StoryPriority.COVER.value:
+            badge_text = "COVER HERO"
+            badge_color = "#992b2b"
+        elif prio == StoryPriority.MAJOR.value:
+            badge_text = "MAJOR FEATURE"
+            badge_color = "#355b82"
+        elif prio == StoryPriority.COLUMN.value:
+            badge_text = "SIDE COLUMN"
+            badge_color = "#4c6643"
+        else:
+            badge_text = "NOTICE / LORE"
+            badge_color = "#7a6229"
+
+        card = ctk.CTkFrame(self.stories_scroll, fg_color=Theme.CARD_BG, corner_radius=5)
+        content = ctk.CTkFrame(card, fg_color="transparent")
+        content.pack(fill="both", expand=True, padx=8, pady=6)
+
+        top_row = ctk.CTkFrame(content, fg_color="transparent")
+        top_row.pack(fill="x")
+
+        ctk.CTkLabel(
+            top_row,
+            text=f" {badge_text} ",
+            font=ctk.CTkFont(size=9, weight="bold"),
+            fg_color=badge_color,
+            corner_radius=3,
+            text_color="#ffffff",
+        ).pack(side="left")
+
+        if story.image_path and os.path.isfile(story.image_path):
+            ctk.CTkLabel(
+                top_row,
+                text=" Image",
+                image=IconManager.get_icon("image", size=11),
+                compound="left",
+                font=ctk.CTkFont(size=9),
+                text_color=Theme.TEXT_MUTED
+            ).pack(side="left", padx=6)
+
+        headline_lbl = ctk.CTkLabel(
+            content,
+            text=story.headline or "[Untitled Headline]",
+            font=ctk.CTkFont(family="Georgia", size=11, weight="bold"),
+            anchor="w",
+            justify="left"
         )
-        self.motion_check.pack(anchor="w", padx=12, pady=(4, 12))
+        headline_lbl.pack(fill="x", pady=(3, 1))
+
+        # Click handler
+        def _on_click(e=None, sid=story.id):
+            self._select_story(sid)
+
+        card.bind("<Button-1>", _on_click)
+        content.bind("<Button-1>", _on_click)
+        headline_lbl.bind("<Button-1>", _on_click)
+        return card
+
+    def _select_story(self, story_id: Optional[str] = None):
+        self.selected_story_id = story_id
+        active_page = self.edition.get_page(self.current_page_idx)
+        stories = active_page.stories if active_page else []
+
+        for sid, frame in self.story_item_frames.items():
+            if sid == story_id:
+                frame.configure(border_width=2, border_color="#e5c158")
+            else:
+                frame.configure(border_width=0)
+
+        found = next((s for s in stories if s.id == story_id), None)
+        if found:
+            self.center_composer.load_story(found)
+            # Find slot id on current layout
+            self._highlight_story_on_preview(found)
+
+    def _highlight_story_on_preview(self, story: Story):
+        active_page = self.edition.get_page(self.current_page_idx)
+        layout_id = active_page.layout_id
+        defs = getattr(self, "raw_layout_defs", {})
+        slots = defs.get(layout_id, {}).get("slots", [])
+
+        # Correlate priority to slot
+        prio_map = {
+            StoryPriority.COVER.value: ["cover_text", "cover_headline", "hero_headline"],
+            StoryPriority.MAJOR.value: ["major_text", "lead_text", "subhead"],
+            StoryPriority.COLUMN.value: ["col_1", "col_2", "col_3", "column_1"],
+            StoryPriority.SNIPPET.value: ["brief_1", "snippet", "notice_box"],
+        }
+        cand_ids = prio_map.get(story.priority.value if isinstance(story.priority, StoryPriority) else str(story.priority), [])
+        target_slot_id = None
+        for s in slots:
+            if s.get("id") in cand_ids:
+                target_slot_id = s.get("id")
+                break
+        if not target_slot_id and slots:
+            target_slot_id = slots[0].get("id")
+
+        self.preview_canvas.set_highlight(story_id=story.id, slot_id=target_slot_id)
+        if self.floating_preview_win:
+            self.floating_preview_win.preview_canvas.set_highlight(story_id=story.id, slot_id=target_slot_id)
+
+    def _on_composer_story_updated(self, story: Story):
+        self._refresh_story_card_text(story)
+        self._update_preview()
+
+    def _refresh_story_card_text(self, story: Story):
+        card = self.story_item_frames.get(story.id)
+        if card:
+            for child in card.winfo_children():
+                for sub in child.winfo_children():
+                    if isinstance(sub, ctk.CTkLabel) and getattr(sub, "_text", "") not in ("COVER HERO", "MAJOR FEATURE", "SIDE COLUMN", "NOTICE / LORE", " Image"):
+                        sub.configure(text=story.headline or "[Untitled Headline]")
+
+    def _on_slot_clicked_on_canvas(self, slot_id: str, story_id: Optional[str]):
+        active_page = self.edition.get_page(self.current_page_idx)
+        if active_page.stories:
+            self._select_story(active_page.stories[0].id)
+
+    def _on_preview_page_flipped(self, page_idx: int):
+        self._on_page_tab_clicked(page_idx)
+
+    # -----------------------------------------------------------------------
+    # Dual-Monitor Floating Preview Detach & Dock
+    # -----------------------------------------------------------------------
+    def _toggle_preview_detachment(self):
+        if self.floating_preview_win:
+            self.floating_preview_win.destroy()
+            self.floating_preview_win = None
+            self.right_dock.pack(side="right", fill="both", expand=False, padx=(4, 0))
+            self.preview_canvas.refresh_preview()
+            self.status_lbl.configure(text="Preview docked to main workspace.")
+        else:
+            self.right_dock.pack_forget()
+            self.floating_preview_win = PreviewToplevelWindow(
+                self,
+                edition=self.edition,
+                on_slot_clicked=self._on_slot_clicked_on_canvas,
+                on_page_changed=self._on_preview_page_flipped,
+                on_dock=self._toggle_preview_detachment
+            )
+            self.floating_preview_win.preview_canvas.set_current_page(self.current_page_idx)
+            self.status_lbl.configure(text="Preview detached to secondary monitor. Main window expanded.")
+
+    def _update_preview(self):
+        self.preview_canvas.refresh_preview()
+        if self.floating_preview_win:
+            self.floating_preview_win.preview_canvas.refresh_preview()
+
+    # -----------------------------------------------------------------------
+    # Story Actions (Add, Delete, Reorder)
+    # -----------------------------------------------------------------------
+    def _add_story(self):
+        active_page = self.edition.get_page(self.current_page_idx)
+        new_story = Story(headline="NEW STORY ARTICLE", priority=StoryPriority.COLUMN)
+        active_page.stories.append(new_story)
+        self.edition.stories = self.edition.all_stories()
+        self._refresh_stories_list()
+        self._select_story(new_story.id)
+        self._update_preview()
+        self.status_lbl.configure(text="Added new story draft.")
+
+    def _delete_selected_story(self):
+        if not self.selected_story_id:
+            return
+        active_page = self.edition.get_page(self.current_page_idx)
+        story = next((s for s in active_page.stories if s.id == self.selected_story_id), None)
+        if story and messagebox.askyesno("Delete Story", f"Delete article '{story.headline}'?", parent=self):
+            active_page.stories.remove(story)
+            self.edition.stories = self.edition.all_stories()
+            self.selected_story_id = None
+            self._refresh_stories_list()
+            self._update_preview()
+            self.status_lbl.configure(text="Story deleted.")
+
+    def _move_story_up(self):
+        self._reorder_story(-1)
+
+    def _move_story_down(self):
+        self._reorder_story(1)
+
+    def _reorder_story(self, offset: int):
+        if not self.selected_story_id:
+            return
+        active_page = self.edition.get_page(self.current_page_idx)
+        idx = next((i for i, s in enumerate(active_page.stories) if s.id == self.selected_story_id), -1)
+        if idx == -1:
+            return
+        new_idx = idx + offset
+        if 0 <= new_idx < len(active_page.stories):
+            active_page.stories[idx], active_page.stories[new_idx] = active_page.stories[new_idx], active_page.stories[idx]
+            self.edition.stories = self.edition.all_stories()
+            self._refresh_stories_list()
+            self._update_preview()
+
+    # -----------------------------------------------------------------------
+    # Layout and Project Management
+    # -----------------------------------------------------------------------
+    def _on_layout_template_changed(self, choice: str):
+        active_page = self.edition.get_page(self.current_page_idx)
+        if choice in self.layout_map:
+            active_page.layout_id = self.layout_map[choice]
+            self.edition.selected_layout = active_page.layout_id
+            self._update_preview()
+            self.status_lbl.configure(text=f"Page {self.current_page_idx + 1} layout set to: {choice}")
+
+    def _refresh_layout_options(self, preferred_selection=None):
+        data = load_layout_definitions(base_dir=self.base_dir)
+        self.raw_layout_defs = data
+        self.layout_map.clear()
+        self.layout_meta.clear()
+
+        single_keys = [k for k in data.keys() if not k.startswith("additional_")]
+        for k in single_keys:
+            info = data[k]
+            label = info.get("label", k.replace("_", " ").title())
+            self.layout_map[label] = k
+            self.layout_meta[k] = info
+
+        labels = list(self.layout_map.keys())
+        self.template_selector.configure(values=labels)
+
+        active_page = self.edition.get_page(self.current_page_idx)
+        target_tid = active_page.layout_id if active_page else "layout_1"
+        for lbl, tid in self.layout_map.items():
+            if tid == target_tid:
+                self.template_selector.set(lbl)
+                break
+
+    def _open_layout_editor(self):
+        active_page = self.edition.get_page(self.current_page_idx)
+        LayoutEditorWindow(
+            self,
+            initial_layout=active_page.layout_id,
+            edition=self.edition,
+            on_project_save=self._on_layout_saved_to_project,
+            on_global_change=self._refresh_layout_options,
+            base_dir=self.base_dir
+        )
+
+    def _on_layout_saved_to_project(self):
+        self._update_preview()
+        self.status_lbl.configure(text="Custom layout slots saved to this issue.")
 
     def _load_edition_into_ui(self):
-        """Populates UI widgets from current `self.edition`."""
         self.title_entry.delete(0, "end")
         self.title_entry.insert(0, self.edition.paper_title)
 
@@ -520,7 +886,7 @@ class MainWindow(ctk.CTk):
         self.tagline_entry.insert(0, self.edition.tagline)
 
         self.topic_bar_entry.delete(0, "end")
-        self.topic_bar_entry.insert(0, getattr(self.edition, "topic_bar", "NEWS ★ SPELLS ★ EVENTS ★ RUMOURS ★ HOGWARTS ★ THE MINISTRY"))
+        self.topic_bar_entry.insert(0, getattr(self.edition, "topic_bar", "HOGWARTS ★ HOGSMEADE ★ MINISTRY ★ COMMUNITY"))
 
         self.date_entry.delete(0, "end")
         self.date_entry.insert(0, self.edition.edition_date)
@@ -541,7 +907,7 @@ class MainWindow(ctk.CTk):
         self.weather_entry.insert(0, getattr(self.edition, "weather", "Mild and Misty with Chance of Spells"))
 
         self.quote_text_entry.delete(0, "end")
-        self.quote_text_entry.insert(0, getattr(self.edition, "quote_text", "It is our choices that show what we truly are, far more than our abilities."))
+        self.quote_text_entry.insert(0, getattr(self.edition, "quote_text", ""))
 
         self.quote_author_entry.delete(0, "end")
         self.quote_author_entry.insert(0, getattr(self.edition, "quote_author", "PROFESSOR FIG"))
@@ -550,15 +916,18 @@ class MainWindow(ctk.CTk):
         self.breaking_entry.insert(0, self.edition.breaking_banner)
 
         self.footer_entry.delete(0, "end")
-        self.footer_entry.insert(0, getattr(self.edition, "footer_slogan", "GOOD NEWS, BRIGHTER DAYS, A MORE MAGICAL TOMORROW"))
+        self.footer_entry.insert(0, getattr(self.edition, "footer_slogan", ""))
 
         self.theme_var.set(self.edition.theme)
         self.motion_var.set(self.edition.magical_motion)
 
+        self._refresh_page_tabs()
         self._refresh_stories_list()
+        self.preview_canvas.set_edition(self.edition)
+        if self.floating_preview_win:
+            self.floating_preview_win.preview_canvas.set_edition(self.edition)
 
     def _sync_settings_from_ui(self):
-        """Updates `self.edition` attributes from the UI inputs."""
         self.edition.paper_title = self.title_entry.get().strip() or "The Daily Prophet"
         self.edition.tagline = self.tagline_entry.get().strip()
         self.edition.topic_bar = self.topic_bar_entry.get().strip()
@@ -575,529 +944,166 @@ class MainWindow(ctk.CTk):
         self.edition.theme = self.theme_var.get()
         self.edition.magical_motion = self.motion_var.get()
 
-    def _refresh_stories_list(self):
-        for widget in self.stories_scroll.winfo_children():
-            widget.destroy()
-
-        self.story_item_frames.clear()
-
-        if not self.edition.stories:
-            empty_lbl = ctk.CTkLabel(
-                self.stories_scroll,
-                text="No stories added yet.\nClick '➕ Add Story' or load an issue preset above.",
-                font=ctk.CTkFont(size=13),
-                text_color="gray60",
-                justify="center",
-            )
-            empty_lbl.pack(pady=40)
-            self._select_story(None)
-            self.status_lbl.configure(text="No stories in current edition.")
-            return
-
-        for idx, story in enumerate(self.edition.stories):
-            card = self._create_story_card(story, idx)
-            card.pack(fill="x", pady=4)
-            self.story_item_frames[story.id] = card
-
-        if self.selected_story_id and any(s.id == self.selected_story_id for s in self.edition.stories):
-            self._select_story(self.selected_story_id)
-        elif self.edition.stories:
-            self._select_story(self.edition.stories[0].id)
-
-        self.status_lbl.configure(text=f"Total: {len(self.edition.stories)} stories in broadsheet edition.")
-
-    def _create_story_card(self, story: Story, index: int) -> ctk.CTkFrame:
-        prio = story.priority
-        if prio == StoryPriority.COVER.value:
-            badge_text = "🌟 COVER HERO"
-            badge_color = "#992b2b"
-        elif prio == StoryPriority.MAJOR.value:
-            badge_text = "📰 MAJOR FEATURE"
-            badge_color = "#355b82"
-        elif prio == StoryPriority.COLUMN.value:
-            badge_text = "📑 SIDE COLUMN"
-            badge_color = "#4c6643"
-        else:
-            badge_text = "📜 NOTICE / LORE"
-            badge_color = "#7a6229"
-
-        card = ctk.CTkFrame(self.stories_scroll, fg_color=("#332b24", "#26201b"), corner_radius=6)
-        content = ctk.CTkFrame(card, fg_color="transparent")
-        content.pack(fill="both", expand=True, padx=10, pady=8)
-
-        top_row = ctk.CTkFrame(content, fg_color="transparent")
-        top_row.pack(fill="x")
-
-        badge = ctk.CTkLabel(
-            top_row,
-            text=f" {badge_text} ",
-            font=ctk.CTkFont(size=10, weight="bold"),
-            fg_color=badge_color,
-            corner_radius=4,
-            text_color="#ffffff",
-        )
-        badge.pack(side="left")
-
-        if story.image_path and os.path.isfile(story.image_path):
-            img_ind = ctk.CTkLabel(top_row, text="📷 Image attached", font=ctk.CTkFont(size=10), text_color="#d6ba8d")
-            img_ind.pack(side="left", padx=8)
-
-        headline_lbl = ctk.CTkLabel(
-            content,
-            text=story.headline or "[Untitled Headline]",
-            font=ctk.CTkFont(family="Georgia", size=13, weight="bold"),
-            anchor="w",
-            justify="left",
-        )
-        headline_lbl.pack(fill="x", pady=(4, 2))
-
-        meta_info = f"{story.author} • {story.location_tag}" if story.location_tag else story.author
-        meta_lbl = ctk.CTkLabel(
-            content,
-            text=meta_info or story.subheadline or "",
-            font=ctk.CTkFont(size=11),
-            text_color="gray70",
-            anchor="w",
-            justify="left",
-        )
-        meta_lbl.pack(fill="x")
-
-        for w in [card, content, top_row, badge, headline_lbl, meta_lbl]:
-            w.bind("<Button-1>", lambda e, sid=story.id: self._select_story(sid))
-            w.bind("<Double-Button-1>", lambda e, s=story: self._open_story_editor(s))
-
-        return card
-
-    def _select_story(self, story_id: str | None = None):
-        self.selected_story_id = story_id
-
-        for sid, card in self.story_item_frames.items():
-            if sid == story_id:
-                card.configure(fg_color=("#4a3e32", "#3b3026"), border_width=2, border_color="#c49a62")
-            else:
-                card.configure(fg_color=("#332b24", "#26201b"), border_width=0)
-
-        story = next((s for s in self.edition.stories if s.id == story_id), None)
-        if not story:
-            self.inspect_prio_lbl.configure(text="")
-            self.inspect_title_lbl.configure(text="No story selected.")
-            self.inspect_author_lbl.configure(text="")
-            self.inspect_photo_preview.configure(text="", image=None)
-            self.inspect_caption_lbl.configure(text="")
-            self.inspect_body_lbl.configure(text="")
-            return
-
-        self.inspect_prio_lbl.configure(text=f"Placement: {story.priority}")
-        self.inspect_title_lbl.configure(text=story.headline)
-        byline_text = f"Byline: {story.author}" if story.author else ""
-        if story.location_tag:
-            byline_text += f" | Location: {story.location_tag}"
-        self.inspect_author_lbl.configure(text=byline_text)
-
-        if story.image_path and os.path.isfile(story.image_path):
-            try:
-                pil_img = Image.open(story.image_path)
-                pil_img.thumbnail((320, 160))
-                ctk_img = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=pil_img.size)
-                self.inspect_photo_preview.configure(text="", image=ctk_img)
-                self.inspect_photo_preview._image = ctk_img
-                self.inspect_caption_lbl.configure(text=f"Caption: {story.image_caption}" if story.image_caption else "")
-            except Exception:
-                self.inspect_photo_preview.configure(text="[Error loading image preview]", image=None)
-                self.inspect_caption_lbl.configure(text="")
-        else:
-            self.inspect_photo_preview.configure(text="[No image attached to story]", image=None)
-            self.inspect_caption_lbl.configure(text="")
-
-        preview_text = story.body[:400] + ("..." if len(story.body) > 400 else "")
-        self.inspect_body_lbl.configure(text=preview_text)
-
-    def _add_story(self):
-        new_story = Story(headline="", priority=StoryPriority.COLUMN.value)
-        self._open_story_editor(new_story, is_new=True)
-
-    def _edit_selected_story(self):
-        if not self.selected_story_id:
-            messagebox.showinfo("No Selection", "Please select a story to edit.", parent=self)
-            return
-        story = next((s for s in self.edition.stories if s.id == self.selected_story_id), None)
-        if story:
-            self._open_story_editor(story, is_new=False)
-
-    def _open_story_editor(self, story: Story, is_new: bool = False):
-        StoryDialog(self, story=story, on_save=self._on_story_saved)
-
-    def _on_story_saved(self, story: Story, is_new: bool):
-        if is_new:
-            self.edition.stories.append(story)
-        self._refresh_stories_list()
-        self._select_story(story.id)
-        self.status_lbl.configure(text=f"Saved story: '{story.headline[:35]}'")
-
-    def _delete_selected_story(self):
-        if not self.selected_story_id:
-            messagebox.showinfo("No Selection", "Please select a story to delete.", parent=self)
-            return
-        story = next((s for s in self.edition.stories if s.id == self.selected_story_id), None)
-        if not story:
-            return
-
-        confirm = messagebox.askyesno("Confirm Deletion", f"Delete story '{story.headline}'?", parent=self)
-        if confirm:
-            self.edition.stories = [s for s in self.edition.stories if s.id != self.selected_story_id]
-            self.selected_story_id = None
-            self._refresh_stories_list()
-            self.status_lbl.configure(text="Story removed from edition.")
-
-    def _move_story_up(self):
-        if not self.selected_story_id:
-            return
-        idx = next((i for i, s in enumerate(self.edition.stories) if s.id == self.selected_story_id), -1)
-        if idx > 0:
-            self.edition.stories[idx - 1], self.edition.stories[idx] = self.edition.stories[idx], self.edition.stories[idx - 1]
-            self._refresh_stories_list()
-            self._select_story(self.selected_story_id)
-
-    def _move_story_down(self):
-        if not self.selected_story_id:
-            return
-        idx = next((i for i, s in enumerate(self.edition.stories) if s.id == self.selected_story_id), -1)
-        if 0 <= idx < len(self.edition.stories) - 1:
-            self.edition.stories[idx + 1], self.edition.stories[idx] = self.edition.stories[idx], self.edition.stories[idx + 1]
-            self._refresh_stories_list()
-            self._select_story(self.selected_story_id)
-
     def _load_hogwarts_original(self):
-        confirm = messagebox.askyesno(
-            "Load Hogwarts Original Issue",
-            "Replace current stories with the complete Hogwarts Original Issue (Mysterious Transformation, Four Houses, Owl Post, Muggle Studies Discord)?",
-            parent=self,
-        )
-        if confirm:
-            self.edition = get_original_hogwarts_edition(".")
-            self._load_edition_into_ui()
-            self.status_lbl.configure(text="Hogwarts Issue loaded successfully!")
+        self.edition = get_original_hogwarts_edition(self.base_dir)
+        self.current_page_idx = 0
+        self._load_edition_into_ui()
+        self.status_lbl.configure(text="Loaded Hogwarts Community Edition preset.")
 
     def _load_azkaban_sample(self):
-        confirm = messagebox.askyesno(
-            "Load Azkaban Edition",
-            "Load the Azkaban / Sirius Black Breakout edition?",
-            parent=self,
-        )
-        if confirm:
-            self.edition = get_azkaban_edition(".")
-            self._load_edition_into_ui()
-            self.status_lbl.configure(text="Azkaban edition loaded successfully!")
+        self.edition = get_azkaban_edition(self.base_dir)
+        self.current_page_idx = 0
+        self._load_edition_into_ui()
+        self.status_lbl.configure(text="Loaded Azkaban Breakout Special Issue.")
 
     def _new_project(self):
-        confirm = messagebox.askyesno("New Project", "Create a blank newspaper edition?", parent=self)
-        if confirm:
+        if messagebox.askyesno("New Project", "Start a blank new newspaper project?", parent=self):
             self.edition = NewspaperEdition()
+            self.current_page_idx = 0
             self.current_project_path = None
             self._load_edition_into_ui()
-            self.status_lbl.configure(text="New newspaper project created.")
-
-    def _save_project(self):
-        self._sync_settings_from_ui()
-        if not self.current_project_path:
-            return self._save_as_project()
-
-        try:
-            self.edition.selected_layout = self._get_selected_template_ids()
-            self.edition.save_project_package(self.current_project_path)
-            self.status_lbl.configure(text=f"Project saved to: {os.path.basename(self.current_project_path)}")
-            messagebox.showinfo("Project Saved", f"Newspaper issue package saved successfully:\n{self.current_project_path}", parent=self)
-        except Exception as e:
-            messagebox.showerror("Save Error", f"Could not save project package:\n{str(e)}", parent=self)
-
-    def _save_as_project(self):
-        self._sync_settings_from_ui()
-        path = filedialog.asksaveasfilename(
-            parent=self,
-            title="Save Newspaper Issue Package",
-            defaultextension=".prophet",
-            filetypes=[
-                ("The Daily Prophet Publication (*.prophet)", "*.prophet"),
-                ("Legacy Project JSON (*.json)", "*.json"),
-                ("All Files", "*.*")
-            ],
-        )
-        if not path:
-            return
-
-        self.current_project_path = path
-        try:
-            self.edition.selected_layout = self._get_selected_template_ids()
-            self.edition.save_project_package(self.current_project_path)
-            self.status_lbl.configure(text=f"Project saved as: {os.path.basename(self.current_project_path)}")
-            messagebox.showinfo("Project Saved", f"Newspaper issue package saved successfully:\n{self.current_project_path}", parent=self)
-        except Exception as e:
-            messagebox.showerror("Save Error", f"Could not save project package:\n{str(e)}", parent=self)
+            self.status_lbl.configure(text="Created new blank edition.")
 
     def _open_project(self):
         path = filedialog.askopenfilename(
             parent=self,
             title="Open Newspaper Issue",
-            filetypes=[
-                ("The Daily Prophet Publication (*.prophet)", "*.prophet"),
-                ("Legacy Project JSON (*.json)", "*.json"),
-                ("All Files", "*.*")
-            ],
+            filetypes=[("Prophet Issue Package", "*.prophet"), ("Legacy JSON Project", "*.json"), ("All Files", "*.*")],
         )
         if path:
             try:
-                self.edition = NewspaperEdition.load_project_package(
-                    path,
-                    cache_base_dir=os.path.join(self.base_dir, "output", "projects_cache")
-                )
+                self.edition = NewspaperEdition.load_project_package(path)
                 self.current_project_path = path
+                self.current_page_idx = 0
                 self._load_edition_into_ui()
-
-                # Restore selected layout in UI dropdown if stored in package
-                if hasattr(self.edition, "selected_layout") and self.edition.selected_layout:
-                    for label, tid in getattr(self, "layout_map", {}).items():
-                        if self.edition.selected_layout == tid:
-                            self.template_selector.set(label)
-                            self._on_layout_changed(label)
-                            break
-
                 self.status_lbl.configure(text=f"Loaded project: {os.path.basename(path)}")
-                messagebox.showinfo("Project Loaded", f"Newspaper issue loaded successfully:\n{os.path.basename(path)}", parent=self)
             except Exception as e:
-                messagebox.showerror("Error Opening Project", f"Could not load project file:\n{str(e)}", parent=self)
+                messagebox.showerror("Error Opening Project", str(e), parent=self)
 
-    def _generate_html(self, embed_images: bool = True, export_mode: bool = False) -> str:
+    def _save_project(self):
+        if self.current_project_path:
+            self._sync_settings_from_ui()
+            try:
+                self.edition.save_project_package(self.current_project_path)
+                self.status_lbl.configure(text=f"Saved project: {os.path.basename(self.current_project_path)}")
+            except Exception as e:
+                messagebox.showerror("Save Error", str(e), parent=self)
+        else:
+            self._save_as_project()
+
+    def _save_as_project(self):
         self._sync_settings_from_ui()
-        return generate_newspaper_html(self.edition, embed_images=embed_images, export_mode=export_mode)
-
-    def _preview_newspaper(self):
-        self._sync_settings_from_ui()
-        tids = self._get_selected_template_ids()
-        target_tid = tids[0] if isinstance(tids, list) else tids
-        self.status_lbl.configure(text=f"Generating publication preview for {target_tid.replace('_', ' ').title()}...")
-
-        try:
-            renderer = NativeBroadsheetRenderer(".")
-            img = renderer.render_template(self.edition, template_id=target_tid, scale=1.5)
-            import tempfile
-            temp_path = os.path.join(tempfile.gettempdir(), f"daily_prophet_preview_{target_tid}.png")
-            img.save(temp_path, "PNG")
-            opened = open_image_preview(temp_path)
-            if opened:
-                self.status_lbl.configure(text=f"Preview opened for {target_tid.replace('_', ' ').title()}.")
-            else:
-                self.status_lbl.configure(text="Preview saved to temporary directory.")
-        except Exception as e:
-            messagebox.showerror("Preview Error", f"Unable to generate preview:\n{str(e)}", parent=self)
-
-    def _open_in_browser(self):
-        html = self._generate_html(embed_images=True, export_mode=False)
-        open_in_browser(html)
-        self.status_lbl.configure(text="Opened publication in browser.")
-
-    def _export_html(self):
-        html = self._generate_html(embed_images=True, export_mode=False)
         path = filedialog.asksaveasfilename(
             parent=self,
-            title="Export Standalone Newspaper HTML",
-            defaultextension=".html",
-            filetypes=[("HTML Document", "*.html"), ("All Files", "*.*")],
+            title="Save Daily Prophet Issue",
+            defaultextension=".prophet",
+            filetypes=[("Prophet Issue Package", "*.prophet"), ("All Files", "*.*")],
         )
         if path:
-            with open(path, "w", encoding="utf-8") as f:
-                f.write(html)
-            self.status_lbl.configure(text=f"Exported HTML to: {os.path.basename(path)}")
-            messagebox.showinfo(
-                "Export Complete",
-                f"Newspaper exported successfully as standalone HTML.\n\nSaved to:\n{path}",
-                parent=self,
-            )
-
-    def _refresh_layout_options(self, preferred_selection=None):
-        """Dynamically reloads layouts from individual .prophettemplate files and populates the layout menu."""
-        data = load_layout_definitions(base_dir=getattr(self, 'base_dir', '.'))
-        self.raw_layout_defs = data
-
-        self.layout_map = {}
-        self.layout_meta = {}
-
-        # Scan all single (non-alias) layouts
-        single_keys = [k for k in data.keys() if not k.startswith("additional_")]
-        for k in single_keys:
-            info = data[k]
-            label = info.get("label", k.replace("_", " ").title())
-            self.layout_map[label] = k
-            self.layout_meta[k] = {
-                "width": info.get("width", 1024),
-                "height": info.get("height", 1400),
-                "slots": len(info.get("slots", []))
-            }
-
-        # Multi-page option for all layouts
-        if len(single_keys) > 1:
-            multi_label = f"📚 Full {len(single_keys)}-Page Wizarding Publication (Multi-Page)"
-            self.layout_map[multi_label] = single_keys
-
-        labels = list(self.layout_map.keys())
-        self.template_selector.configure(values=labels)
-
-        current = preferred_selection or self.template_selector.get()
-        if current in self.layout_map:
-            self.template_selector.set(current)
-        elif labels:
-            self.template_selector.set(labels[0])
-
-        self._on_layout_changed(self.template_selector.get())
-
-    def _on_layout_changed(self, choice: str):
-        tids = self._get_selected_template_ids()
-        if isinstance(tids, list):
-            self.layout_info_lbl.configure(text=f"Multi-Page Issue • {len(tids)} Full Pages")
-            self.status_lbl.configure(text=f"Selected: {choice} ({len(tids)} pages).")
-        else:
-            meta = getattr(self, "layout_meta", {}).get(tids, {})
-            w = meta.get("width", 1122)
-            h = meta.get("height", 1402)
-            slots_n = meta.get("slots", 18)
-
-            local_defs = getattr(self, "raw_layout_defs", {})
-            edition_layout = self.edition.custom_layouts.get(tids) if hasattr(self.edition, "custom_layouts") else None
-            local_layout = local_defs.get(tids)
-
-            from ..template_package import is_layout_modified
-            is_mod = is_layout_modified(edition_layout, local_layout) if (edition_layout and local_layout) else False
-            is_bundled = meta.get("bundled", True)
-            status = LayoutStatus.determine(is_bundled, is_mod)
-
-            badge = " • [Modified]" if status == LayoutStatus.MODIFIED else ""
-            self.layout_info_lbl.configure(text=f"{w}x{h} Broadsheet • {slots_n} Content Slots{badge}")
-            if hasattr(self, "status_lbl"):
-                self.status_lbl.configure(text=f"Layout changed to: {choice}")
-
-    def _get_selected_template_ids(self) -> str | List[str]:
-        selected = self.template_selector.get()
-        if hasattr(self, "layout_map") and selected in self.layout_map:
-            return self.layout_map[selected]
-        return "layout_1"
-
-    def _view_wireframe_mask(self):
-        tids = self._get_selected_template_ids()
-        first_id = tids[0] if isinstance(tids, list) else tids
-        mask_file = os.path.join("assets", "templates", "masks", f"{first_id}_wireframe.png")
-        if not os.path.exists(mask_file):
-            alt_mask = os.path.join("assets", "templates", "masks", f"additional_{first_id}_wireframe.png")
-            if os.path.exists(alt_mask):
-                mask_file = alt_mask
-
-        if os.path.exists(mask_file):
-            abs_mask = os.path.abspath(mask_file)
             try:
-                os.startfile(abs_mask)
-                self.status_lbl.configure(text=f"Opened wireframe mask for {first_id.replace('_', ' ').title()}.")
+                self.edition.save_project_package(path)
+                self.current_project_path = path
+                self.status_lbl.configure(text=f"Saved project: {os.path.basename(path)}")
             except Exception as e:
-                messagebox.showerror("Wireframe Error", f"Could not open mask: {e}", parent=self)
-        else:
-            messagebox.showwarning("Mask Not Found", f"Wireframe mask not found: {mask_file}", parent=self)
+                messagebox.showerror("Save Error", str(e), parent=self)
 
-    def _open_layout_editor(self):
-        tids = self._get_selected_template_ids()
-        target_tid = tids[0] if isinstance(tids, list) else tids
-        LayoutEditorWindow(
-            self,
-            initial_layout=target_tid,
-            edition=self.edition,
-            on_project_save=self._on_layout_saved_to_project,
-            on_global_change=self._refresh_layout_options,
-            base_dir="."
-        )
-        self.status_lbl.configure(text=f"Opened Layout Slot Editor for {target_tid.replace('_', ' ').title()}.")
-
-    def _on_layout_saved_to_project(self):
-        self._on_layout_changed(self.template_selector.get())
-        self.status_lbl.configure(text="Custom layout slots saved to this issue! Issue modified.")
-
+    # -----------------------------------------------------------------------
+    # Exporters (Multi-Page PDF, Image, Animated GIF)
+    # -----------------------------------------------------------------------
     def _export_pdf(self):
         self._sync_settings_from_ui()
-        tids = self._get_selected_template_ids()
-        page_count_str = f"{len(tids)} pages" if isinstance(tids, list) else "1 page"
-        self.status_lbl.configure(text=f"Rendering PDF ({page_count_str})...")
+        num_pages = len(self.edition.pages) if hasattr(self.edition, "pages") and self.edition.pages else 1
 
-        pdf_path = filedialog.asksaveasfilename(
+        path = filedialog.asksaveasfilename(
             parent=self,
-            title="Export Newspaper to PDF",
+            title=f"Export Multi-Page PDF ({num_pages} Pages)",
             defaultextension=".pdf",
             filetypes=[("PDF Document", "*.pdf"), ("All Files", "*.*")],
         )
-        if not pdf_path:
+        if not path:
             return
 
-        success, msg = export_native_pdf(self.edition, pdf_path, template_ids=tids, scale=2.0)
+        self.status_lbl.configure(text="Compiling multi-page broadsheet PDF...")
+        success, msg = self.exporter.export_pdf(self.edition, path, scale=2.0)
         if success:
-            self.status_lbl.configure(text=f"Successfully exported PDF to: {os.path.basename(pdf_path)}")
-            messagebox.showinfo(
-                "PDF Export Complete",
-                f"Your Daily Prophet PDF has been created successfully.\n\nPages: {page_count_str}\nSaved to:\n{pdf_path}",
-                parent=self
-            )
+            self.status_lbl.configure(text=f"Exported PDF to: {os.path.basename(path)}")
+            messagebox.showinfo("PDF Export Complete", f"Created {num_pages}-page print-ready PDF:\n{path}", parent=self)
         else:
-            self.status_lbl.configure(text="PDF export failed.")
-            messagebox.showerror("PDF Export Error", msg, parent=self)
+            messagebox.showerror("Export Failed", msg, parent=self)
 
-    def _export_image(self):
+    def _export_images_dialog(self):
         self._sync_settings_from_ui()
-        tids = self._get_selected_template_ids()
-        tid = tids[0] if isinstance(tids, list) else tids
-        self.status_lbl.configure(text=f"Rendering image for {tid.replace('_', ' ').title()}...")
+        num_pages = len(self.edition.pages) if hasattr(self.edition, "pages") and self.edition.pages else 1
 
-        img_path = filedialog.asksaveasfilename(
-            parent=self,
-            title="Export Newspaper to Image (PNG or JPG)",
-            defaultextension=".png",
-            filetypes=[("PNG Image", "*.png"), ("JPEG Image", "*.jpg;*.jpeg"), ("All Files", "*.*")],
-        )
-        if not img_path:
-            return
+        dialog = ctk.CTkToplevel(self)
+        dialog.title("Export Broadsheet Images")
+        dialog.geometry("400x320")
+        dialog.transient(self)
+        dialog.grab_set()
 
-        success, msg = export_native_image(self.edition, img_path, template_id=tid, scale=2.0)
-        if success:
-            self.status_lbl.configure(text=f"Successfully exported Image to: {os.path.basename(img_path)}")
-            messagebox.showinfo(
-                "Image Export Complete",
-                f"Your Daily Prophet Image has been created successfully in high resolution.\n\nSaved to:\n{img_path}",
-                parent=self,
-            )
-        else:
-            self.status_lbl.configure(text="Image export failed.")
-            messagebox.showerror("Image Export Error", msg, parent=self)
+        ctk.CTkLabel(dialog, text="Export Broadsheet Images / GIF", font=ctk.CTkFont(size=14, weight="bold")).pack(pady=(16, 8))
+
+        scope_var = ctk.StringVar(value="current")
+        ctk.CTkRadioButton(dialog, text=f"Export Active Page ({self.current_page_idx + 1} of {num_pages})", variable=scope_var, value="current").pack(anchor="w", padx=30, pady=4)
+        ctk.CTkRadioButton(dialog, text=f"Export All Pages ({num_pages} Pages)", variable=scope_var, value="all").pack(anchor="w", padx=30, pady=4)
+
+        anim_var = ctk.BooleanVar(value=False)
+        ctk.CTkCheckBox(dialog, text="Export as Animated Broadsheet GIF (moving pictures)", variable=anim_var).pack(anchor="w", padx=30, pady=(12, 16))
+
+        def _do_export():
+            is_anim = anim_var.get()
+            scope = scope_var.get()
+            dialog.destroy()
+
+            if scope == "current":
+                ext = ".gif" if is_anim else ".png"
+                filetypes = [("GIF Animation", "*.gif")] if is_anim else [("PNG Image", "*.png"), ("JPEG", "*.jpg")]
+                out_path = filedialog.asksaveasfilename(parent=self, title="Export Page Image", defaultextension=ext, filetypes=filetypes)
+                if out_path:
+                    if is_anim:
+                        success, msg = self.exporter.export_animated_gif(self.edition, out_path, page_idx=self.current_page_idx)
+                    else:
+                        success, msg = self.exporter.export_page_image(self.edition, out_path, page_idx=self.current_page_idx, scale=2.0)
+                    if success:
+                        messagebox.showinfo("Export Complete", msg, parent=self)
+                    else:
+                        messagebox.showerror("Export Failed", msg, parent=self)
+            else:
+                out_dir = filedialog.askdirectory(parent=self, title="Select Directory for Exported Pages")
+                if out_dir:
+                    fmt = "gif" if is_anim else "png"
+                    success, msg, paths = self.exporter.export_all_page_images(self.edition, out_dir, format_ext=fmt, scale=2.0)
+                    if success:
+                        messagebox.showinfo("Batch Export Complete", f"Exported {len(paths)} pages into:\n{out_dir}", parent=self)
+                    else:
+                        messagebox.showerror("Export Failed", msg, parent=self)
+
+        ctk.CTkButton(dialog, text="Export Publication", fg_color=Theme.BTN_PRIMARY[0], hover_color=Theme.BTN_PRIMARY[1], command=_do_export).pack(pady=10)
 
     def _apply_win32_icon(self):
-        """Explicitly set high-resolution native Windows icons on the HWND to bypass Tk downsampling."""
         if sys.platform != "win32" or not hasattr(self, "icon_ico") or not os.path.exists(self.icon_ico):
             return
         try:
             import ctypes
             user32 = ctypes.windll.user32
             hwnd = self.winfo_id()
-            root_hwnd = user32.GetAncestor(hwnd, 2)  # GA_ROOT
+            root_hwnd = user32.GetAncestor(hwnd, 2)
             target_hwnd = root_hwnd if root_hwnd else hwnd
 
             IMAGE_ICON = 1
             LR_LOADFROMFILE = 0x00000010
             WM_SETICON = 0x0080
-            ICON_SMALL = 0
             ICON_BIG = 1
 
-            cx_big = user32.GetSystemMetrics(11)  # SM_CXICON
-            cy_big = user32.GetSystemMetrics(12)  # SM_CYICON
-            cx_sm = user32.GetSystemMetrics(49)   # SM_CXSMICON
-            cy_sm = user32.GetSystemMetrics(50)   # SM_CYSMICON
-
+            cx_big = user32.GetSystemMetrics(11)
+            cy_big = user32.GetSystemMetrics(12)
             hicon_big = user32.LoadImageW(None, self.icon_ico, IMAGE_ICON, cx_big, cy_big, LR_LOADFROMFILE)
-            hicon_sm = user32.LoadImageW(None, self.icon_ico, IMAGE_ICON, cx_sm, cy_sm, LR_LOADFROMFILE)
-
             if hicon_big:
                 user32.SendMessageW(target_hwnd, WM_SETICON, ICON_BIG, hicon_big)
-            if hicon_sm:
-                user32.SendMessageW(target_hwnd, WM_SETICON, ICON_SMALL, hicon_sm)
         except Exception:
             pass
+
+
+if __name__ == "__main__":
+    app = MainWindow()
+    app.mainloop()

@@ -11,7 +11,6 @@ from daily_prophet.models import (
     ImageAlign,
     PaperTheme,
     BorderStyle,
-    ExportFormat,
     Story,
     NewspaperEdition
 )
@@ -22,9 +21,7 @@ from daily_prophet.layout_models import (
     LayoutDefinition
 )
 from daily_prophet.versioning import (
-    CompatibilitySeverity,
-    CompatibilityIssue,
-    FormatVersion
+    CompatibilitySeverity
 )
 from daily_prophet.template_package import is_layout_modified
 

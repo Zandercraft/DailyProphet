@@ -10,10 +10,9 @@ import os
 import shutil
 import json
 import zipfile
-from typing import Dict, Any, Optional, List
-from PIL import Image
+from typing import Dict, Optional
 from .versioning import FormatVersion, CURRENT_TEMPLATE_VERSION, template_migration_pipeline
-from .layout_models import LayoutDefinition, LayoutSlot, SlotType, LayoutStatus
+from .layout_models import LayoutDefinition
 
 SHIPPED_TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "default_templates")
 INSTALLED_TEMPLATES_DIR = os.path.join("assets", "templates", "installed")
@@ -22,7 +21,7 @@ TEMPLATES_CACHE_DIR = os.path.join("assets", "templates", "cache")
 BUILTIN_SHIPPED_LAYOUTS = [f"layout_{i}" for i in range(1, 10)]
 
 
-def is_layout_modified(edition_layout: Optional[Dict[str, Any]], local_layout: Optional[Dict[str, Any]]) -> bool:
+def is_layout_modified(edition_layout: Optional[Dict[str, object]], local_layout: Optional[Dict[str, object]]) -> bool:
     """Compares an issue-bundled layout against an installed local template.
     Returns True if the issue layout has slot, rectangle, or property modifications.
     """
@@ -35,7 +34,7 @@ def is_layout_modified(edition_layout: Optional[Dict[str, Any]], local_layout: O
 
 def create_template_package(
     layout_id: str,
-    layout_data: Dict[str, Any],
+    layout_data: Dict[str, object],
     output_path: str,
     target_version: str = CURRENT_TEMPLATE_VERSION,
     is_bundled: Optional[bool] = None,
@@ -97,7 +96,7 @@ def load_template_package(
     file_path: str,
     cache_base_dir: Optional[str] = None,
     base_dir: str = "."
-) -> Dict[str, Any]:
+) -> Dict[str, object]:
     """Unpacks a .prophettemplate file into the local template cache and returns the layout definition dict."""
     target_cache = cache_base_dir or os.path.join(base_dir, TEMPLATES_CACHE_DIR)
 
@@ -128,7 +127,7 @@ def load_template_package(
         if manifest:
             raw_ver = manifest.get("format_version") or manifest.get("version", "1.0")
         source_ver = FormatVersion.parse(raw_ver)
-        migrated_data, was_upgraded, orig_ver = template_migration_pipeline.migrate(template_data, source_ver)
+        migrated_data, _, _ = template_migration_pipeline.migrate(template_data, source_ver)
 
         # Determine bundled flag
         is_b = False
@@ -165,7 +164,7 @@ def load_all_installed_templates(
     installed_dir: Optional[str] = None,
     shipped_dir: Optional[str] = None,
     base_dir: str = "."
-) -> Dict[str, Dict[str, Any]]:
+) -> Dict[str, Dict[str, object]]:
     """Loads all .prophettemplate files from the installed directory, bootstrapping from shipped source if empty."""
     inst_dir = installed_dir or os.path.join(base_dir, INSTALLED_TEMPLATES_DIR)
     ship_dir = shipped_dir or os.path.join(base_dir, SHIPPED_TEMPLATES_DIR)
@@ -184,7 +183,7 @@ def load_all_installed_templates(
         full_path = os.path.join(inst_dir, filename)
         try:
             data = load_template_package(full_path, base_dir=base_dir)
-            tid = data.get("id", os.path.splitext(filename)[0])
+            tid = str(data.get("id", os.path.splitext(filename)[0]))
             templates[tid] = data
             # Provide alias without layout_ or with additional_ if needed
             templates[f"additional_{tid}"] = dict(data)
@@ -196,7 +195,7 @@ def load_all_installed_templates(
 
 def save_installed_template(
     layout_id: str,
-    layout_data: Dict[str, Any],
+    layout_data: Dict[str, object],
     installed_dir: Optional[str] = None,
     base_dir: str = "."
 ) -> str:
@@ -272,7 +271,7 @@ def restore_template_from_shipped_or_backup(
     installed_dir: Optional[str] = None,
     shipped_dir: Optional[str] = None,
     base_dir: str = "."
-) -> Optional[Dict[str, Any]]:
+) -> Optional[Dict[str, object]]:
     """Restores a single template from its .bak backup or from factory shipped defaults."""
     inst_dir = installed_dir or os.path.join(base_dir, INSTALLED_TEMPLATES_DIR)
     ship_dir = shipped_dir or os.path.join(base_dir, SHIPPED_TEMPLATES_DIR)

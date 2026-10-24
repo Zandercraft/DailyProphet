@@ -4,13 +4,10 @@ Renders authentic, high-resolution Harry Potter broadsheet newspapers directly o
 Supports borderless PDF and high-res PNG/JPEG exports.
 """
 import os
-import json
-import textwrap
-from typing import List, Tuple, Optional, Union, Dict, Any
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
-import numpy as np
+from typing import List, Tuple, Optional, Union
+from PIL import Image, ImageDraw, ImageFont
 
-from .models import NewspaperEdition, Story, StoryPriority
+from .models import NewspaperEdition, NewspaperPage, Story, StoryPriority
 from .template_package import load_all_installed_templates
 
 
@@ -220,13 +217,34 @@ class NativeBroadsheetRenderer:
         self.base_dir = os.path.abspath(base_dir)
         self.fonts = BroadsheetFontManager(self.base_dir)
 
-    def render(self, edition: NewspaperEdition, template_id: str = "layout_1", scale: float = 1.0) -> Image.Image:
+    def render(self, edition: NewspaperEdition, template_id: str = "layout_1", scale: float = 1.0, page: Optional[NewspaperPage] = None) -> Image.Image:
         """Renders content directly into the authentic vintage newspaper layout template."""
-        return self.render_slot_layout(edition, template_id=template_id, scale=scale)
+        return self.render_slot_layout(edition, template_id=template_id, scale=scale, page=page)
 
-    def render_slot_layout(self, edition: NewspaperEdition, template_id: str = "layout_1", scale: float = 1.0) -> Image.Image:
+    def render_template(self, edition: NewspaperEdition, template_id: str = "layout_1", scale: float = 1.0, page: Optional[NewspaperPage] = None) -> Image.Image:
+        """Alias for render_slot_layout."""
+        return self.render_slot_layout(edition, template_id=template_id, scale=scale, page=page)
+
+    def render_page(self, edition: NewspaperEdition, page_idx: int = 0, scale: float = 1.0) -> Image.Image:
+        """Renders a specific page of the publication using that page's assigned layout and stories."""
+        if hasattr(edition, "get_page"):
+            page = edition.get_page(page_idx)
+            return self.render_slot_layout(edition, template_id=page.layout_id, scale=scale, page=page)
+        return self.render_slot_layout(edition, template_id=edition.selected_layout, scale=scale)
+
+    def render_all_pages(self, edition: NewspaperEdition, scale: float = 1.0) -> List[Image.Image]:
+        """Renders every page of the publication in order into a list of PIL Images."""
+        if hasattr(edition, "pages") and edition.pages:
+            return [self.render_slot_layout(edition, template_id=p.layout_id, scale=scale, page=p) for p in edition.pages]
+        return [self.render_slot_layout(edition, template_id=edition.selected_layout, scale=scale)]
+
+    def render_slot_layout(self, edition: NewspaperEdition, template_id: str = "layout_1", scale: float = 1.0, page: Optional[NewspaperPage] = None) -> Image.Image:
         """Renders content dynamically into any installed .prophettemplate layout."""
         all_layouts = load_all_installed_templates(base_dir=self.base_dir)
+
+        # Resolve page and layout id
+        if page is not None and hasattr(page, "layout_id") and page.layout_id:
+            template_id = page.layout_id
 
         # Normalize template id
         if not template_id or template_id in ["default", "broadsheet_single_page"]:
@@ -274,15 +292,18 @@ class NativeBroadsheetRenderer:
         def S(v: int) -> int:
             return int(v * scale)
 
-        # Pool of stories to assign across slots
-        cover_stories = [s for s in edition.stories if s.priority == StoryPriority.COVER.value]
-        major_stories = [s for s in edition.stories if s.priority == StoryPriority.MAJOR.value]
-        col_stories = [s for s in edition.stories if s.priority == StoryPriority.COLUMN.value]
-        snippet_stories = [s for s in edition.stories if s.priority == StoryPriority.SNIPPET.value]
+        # Pool of stories to assign across slots for this page
+        if page is not None and hasattr(page, "stories") and page.stories:
+            page_stories = page.stories
+        else:
+            page_stories = edition.stories
 
-        cover = cover_stories[0] if cover_stories else (edition.stories[0] if edition.stories else Story(headline="HOGWARTS NEWS"))
-        major = major_stories[0] if major_stories else (edition.stories[1] if len(edition.stories) > 1 else cover)
-        other_stories = [s for s in edition.stories if s != cover and s != major]
+        cover_stories = [s for s in page_stories if s.priority == StoryPriority.COVER.value]
+        major_stories = [s for s in page_stories if s.priority == StoryPriority.MAJOR.value]
+
+        cover = cover_stories[0] if cover_stories else (page_stories[0] if page_stories else Story(headline="HOGWARTS NEWS"))
+        major = major_stories[0] if major_stories else (page_stories[1] if len(page_stories) > 1 else cover)
+        other_stories = [s for s in page_stories if s != cover and s != major]
         if not other_stories:
             other_stories = [cover, major]
 
@@ -429,12 +450,6 @@ class NativeBroadsheetRenderer:
 
         return canvas
 
-    def render_template(self, edition: NewspaperEdition, template_id: str = "layout_1", scale: float = 1.0) -> Image.Image:
-        """Renders the selected authentic wizarding layout template."""
-        if not template_id or template_id in ["default", "broadsheet_single_page"]:
-            template_id = "layout_1"
-        return self.render_slot_layout(edition, template_id=template_id, scale=scale)
-
     def render_multipage(self, edition: NewspaperEdition, template_ids: List[str], scale: float = 1.0) -> List[Image.Image]:
         """Renders a sequence of layout templates as a multi-page publication."""
         pages = []
@@ -471,7 +486,7 @@ def export_native_image(
 def export_native_pdf(
     edition: NewspaperEdition,
     output_path: str,
-    template_ids: Union[str, List[str]] = "layout_1",
+    template_ids: str | List[str] = "layout_1",
     scale: float = 2.0
 ) -> Tuple[bool, str]:
     """Renders and exports the newspaper layout directly to a high-resolution borderless PDF."""

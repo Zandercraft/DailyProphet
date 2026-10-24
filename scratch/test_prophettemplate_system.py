@@ -1,20 +1,16 @@
 import os
 import sys
-import json
 import zipfile
 import shutil
 
 sys.path.insert(0, os.path.abspath("."))
 
 from daily_prophet.template_package import (
-    create_template_package,
     load_template_package,
     load_all_installed_templates,
     save_installed_template,
     delete_installed_template,
-    restore_template_from_shipped_or_backup,
-    SHIPPED_TEMPLATES_DIR,
-    INSTALLED_TEMPLATES_DIR
+    SHIPPED_TEMPLATES_DIR
 )
 from daily_prophet.models import NewspaperEdition, Story
 from daily_prophet.native_renderer import NativeBroadsheetRenderer

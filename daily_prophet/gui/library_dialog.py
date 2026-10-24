@@ -2,7 +2,7 @@
 import os
 import customtkinter as ctk
 from PIL import Image
-from typing import Callable, Optional, Dict, List
+from typing import Callable, Dict, List
 from .theme import Theme, IconManager
 
 

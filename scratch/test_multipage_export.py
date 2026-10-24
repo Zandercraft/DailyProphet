@@ -1,8 +1,8 @@
 """Test rendering all 9 Additional Layouts into a single 9-page PDF and individual PNGs."""
 import os
 import json
-from typing import List, Tuple, Dict, Any, Optional
-from PIL import Image, ImageDraw, ImageFont
+from typing import Dict, Any
+from PIL import Image, ImageDraw
 from daily_prophet.models import NewspaperEdition, Story, StoryPriority
 from daily_prophet.sample_data import get_original_hogwarts_edition
 from daily_prophet.native_renderer import BroadsheetFontManager, _wrap_text_to_width, _draw_story_paragraphs

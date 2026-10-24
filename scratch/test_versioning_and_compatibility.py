@@ -10,8 +10,7 @@ from daily_prophet.models import NewspaperEdition, Story
 from daily_prophet.versioning import (
     ProjectMigrator,
     TemplateMigrator,
-    CURRENT_PROJECT_VERSION,
-    CURRENT_TEMPLATE_VERSION
+    CURRENT_PROJECT_VERSION
 )
 
 def test_versioning_and_compatibility():

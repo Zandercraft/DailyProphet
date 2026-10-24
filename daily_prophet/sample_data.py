@@ -151,7 +151,6 @@ def get_original_hogwarts_edition(base_dir: str = ".") -> NewspaperEdition:
 
     castle_img = os.path.join(loc_dir, "hogwarts_castle_twilight.png")
     houses_img = os.path.join(artifact_dir, "four_houses_heraldic.png")
-    hat_img = os.path.join(char_dir, "sorting_hat_cutout.png")
     owl_img = os.path.join(artifact_dir, "owl_post_cutout.png")
     discord_img = os.path.join(loc_dir, "muggle_studies_terminal.png")
     quidditch_img = os.path.join(loc_dir, "quidditch_pitch_flying.png")

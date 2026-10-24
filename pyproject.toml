@@ -1,0 +1,36 @@
+[project]
+name = "the-daily-prophet"
+version = "1.0.0"
+description = "Wizarding Broadsheet Generator & Layout Publisher inspired by The Daily Prophet"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "customtkinter~=6.0.0",
+    "Pillow~=13.0.0",
+    "numpy~=2.5.4",
+    "pytesseract~=0.3.13",
+    "opencv-python~=5.0.0.93",
+    "rembg[cpu]~=2.0.86",
+    "onnxruntime~=1.31.0",
+    "tkinter-icons[lucide,material,rpg-awesome]~=5.1.0",
+    "poethepoet~=0.49.0",
+    "ruff~=0.17.2",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+ignore = ["E501"]
+
+[tool.poe.tasks]
+run = { cmd = "python main.py", help = "Run The Daily Prophet desktop application" }
+start = { cmd = "python main.py", help = "Alias to run the desktop application" }
+format = { cmd = "ruff format .", help = "Auto-format Python code using Ruff" }
+format-check = { cmd = "ruff format --check .", help = "Check formatting without modifying files" }
+lint = { cmd = "ruff check .", help = "Check for linting errors using Ruff" }
+lint-fix = { cmd = "ruff check --fix .", help = "Check and auto-fix linting errors using Ruff" }
+test = { cmd = "python scratch/test_gui_modernization.py", help = "Run modernization smoke & regression tests" }
+check = { sequence = ["format-check", "lint"], help = "Run both formatting checks and linting" }
