@@ -606,7 +606,7 @@ class NativeBroadsheetRenderer:
         slots = layout_def.get("slots", [])
         slot_to_story, _ = map_slots_to_stories(page_stories, slots)
         story_by_id = {s.id: s for s in page_stories}
-        default_story = page_stories[0] if page_stories else Story(headline="HOGWARTS NEWS")
+        default_story = page_stories[0] if page_stories else None
 
         lore_cursor = 0
         lore_items = [
@@ -723,11 +723,15 @@ class NativeBroadsheetRenderer:
                 _draw_text_with_symbols(draw, (tkx, ry + S(4)), tk_text, font=tk_font, fill=tk_color)
 
             elif stype in ["headline", "subheadline"]:
+                if not target_story:
+                    continue
                 text_str = (
                     target_story.headline.upper()
                     if stype == "headline"
                     else (target_story.subheadline or target_story.headline)
                 )
+                if not text_str.strip():
+                    continue
                 font_type = _resolve_slot_font(
                     slot.get("font_family"), "headline" if stype == "headline" else "subhead_italic"
                 )
@@ -777,6 +781,8 @@ class NativeBroadsheetRenderer:
                     draw.rectangle([rx, ry, rx + rw, ry + rh], outline=border_ink, width=S(1))
 
             elif stype in ["body", "column"]:
+                if not target_story or not target_story.body.strip():
+                    continue
                 paras = [p.strip() for p in target_story.body.split("\n\n") if p.strip()]
                 b_font_type = _resolve_slot_font(slot.get("font_family"), "body")
                 b_size = _resolve_slot_font_size(slot.get("font_size"), S(9.5), scale)

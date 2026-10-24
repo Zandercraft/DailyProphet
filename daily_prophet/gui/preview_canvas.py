@@ -235,6 +235,9 @@ class BroadsheetPreviewCanvas(ctk.CTkFrame):
 
     def set_edition(self, edition: NewspaperEdition):
         self.edition = edition
+        self.selected_story_id = None
+        self.selected_slot_id = None
+        self.highlight_slot_ids = []
         self.refresh_preview()
 
     def set_current_page(self, page_idx: int):

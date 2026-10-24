@@ -117,14 +117,14 @@ class MainWindow(ctk.CTk):
             text="THE DAILY PROPHET",
             font=Theme.font_masthead(size=20, weight="bold"),
             text_color=Theme.TEXT_PARCHMENT,
-        ).pack(anchor="w")
+        ).pack(anchor="w", pady=(4, 0))
 
         ctk.CTkLabel(
             titles_text_box,
             text="Wizarding Broadsheet Editor & Layout Publisher",
             font=Theme.font_masthead_subtitle(size=12, slant="italic"),
             text_color="#d6c9b6",
-        ).pack(anchor="w", pady=(2, 0))
+        ).pack(anchor="w", pady=(0, 0))
 
         # Responsive Icon-First Toolbar on Right
         top_btns = ctk.CTkFrame(top_bar, fg_color="transparent")
@@ -881,7 +881,8 @@ class MainWindow(ctk.CTk):
     # -----------------------------------------------------------------------
     def _add_story(self):
         active_page = self.edition.get_page(self.current_page_idx)
-        new_story = Story(headline="NEW STORY ARTICLE", priority=StoryPriority.COLUMN)
+        prio = StoryPriority.COVER if not active_page.stories else StoryPriority.COLUMN
+        new_story = Story(headline="NEW STORY ARTICLE", priority=prio)
         active_page.stories.append(new_story)
         self.edition.stories = self.edition.all_stories()
         self._refresh_stories_list()
@@ -1018,6 +1019,7 @@ class MainWindow(ctk.CTk):
         self.footer_entry.delete(0, "end")
         self.footer_entry.insert(0, getattr(self.edition, "footer_slogan", ""))
 
+        self.selected_story_id = None
         self._refresh_page_tabs()
         self._refresh_stories_list()
         self.preview_canvas.set_edition(self.edition)

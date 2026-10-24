@@ -298,10 +298,22 @@ class StoryComposer(ctk.CTkFrame):
     def load_story(self, story: Optional[Story]):
         """Populates the composer with the selected story's fields."""
         self.current_story = story
-        if not story:
-            return
-
         self._is_populating = True
+
+        if not story:
+            self.headline_entry.delete(0, "end")
+            self.subhead_entry.delete(0, "end")
+            self.author_entry.delete(0, "end")
+            self.location_entry.delete(0, "end")
+            self.priority_var.set(StoryPriority.COLUMN.value)
+            self.body_text.delete("1.0", "end")
+            self.photo_path_var.set("")
+            self.caption_entry.delete(0, "end")
+            self.box_style_var.set(BoxStyle.STANDARD.value)
+            self.pull_quote_entry.delete(0, "end")
+            self._update_word_meter()
+            self._is_populating = False
+            return
         self.headline_entry.delete(0, "end")
         self.headline_entry.insert(0, story.headline)
 

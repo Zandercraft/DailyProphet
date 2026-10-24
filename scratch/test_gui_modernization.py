@@ -80,12 +80,25 @@ print("Live settings field updates and preview sync ok.")
 
 # 9. Test native renderer with symbols / stars
 from daily_prophet.native_renderer import NativeBroadsheetRenderer  # noqa: E402
+from daily_prophet.models import NewspaperEdition  # noqa: E402
 
 renderer = NativeBroadsheetRenderer()
 app.edition.breaking_banner = "BREAKING ★ STAR ALERT ★ TEST"
 img = renderer.render_page(app.edition, 0)
 assert img is not None
 print("Native broadsheet symbol/star rendering ok.")
+
+# 10. Test blank project resets composer and selection state
+app.edition = NewspaperEdition()
+app.current_page_idx = 0
+app.current_project_path = None
+app._load_edition_into_ui()
+assert app.center_composer.headline_entry.get() == ""
+assert app.center_composer.body_text.get("1.0", "end-1c") == ""
+assert app.selected_story_id is None
+assert app.preview_canvas.selected_story_id is None
+assert app.preview_canvas.highlight_slot_ids == []
+print("Blank project composer reset and selection clearing ok.")
 
 app.destroy()
 print("All functional GUI smoke tests PASSED!")
